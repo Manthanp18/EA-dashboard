@@ -23,6 +23,41 @@ const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
 console.log('Database initialized successfully at:', dbPath);
+
+// Migration: Drop old snapshots table if columns don't match
+try {
+  const checkStmt = db.prepare("PRAGMA table_info(snapshots)");
+  const columns = checkStmt.all();
+  const hasOldSchema = columns.some(col => col.name === 'running_pnl' || col.name === 'net_bank');
+
+  if (hasOldSchema) {
+    console.log('⚠️  Old schema detected, migrating database...');
+    db.exec('DROP TABLE IF EXISTS snapshots');
+    db.exec(`
+      CREATE TABLE snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        login INTEGER NOT NULL,
+        balance REAL NOT NULL,
+        equity REAL NOT NULL,
+        cycle_net REAL NOT NULL,
+        realized_bank REAL NOT NULL,
+        floating_pnl REAL NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        server TEXT,
+        ea_timestamp INTEGER,
+        received_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        FOREIGN KEY (login) REFERENCES accounts(login)
+      );
+      CREATE INDEX idx_snapshots_login ON snapshots(login);
+      CREATE INDEX idx_snapshots_received_at ON snapshots(received_at);
+      CREATE INDEX idx_snapshots_login_received ON snapshots(login, received_at DESC);
+    `);
+    console.log('✅ Database migrated to new schema');
+  }
+} catch (err) {
+  console.error('Migration error (non-fatal):', err.message);
+}
+
 console.log('===============================');
 
 // Initialize schema
