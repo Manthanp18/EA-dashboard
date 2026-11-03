@@ -163,6 +163,7 @@ function createAccountCard(account) {
         <div class="account-login">Account: ${account.login}${account.server ? ' • ' + escapeHtml(account.server) : ''}</div>
       </div>
       <div class="account-actions">
+        <button class="delete-account-btn" data-login="${account.login}">Delete</button>
         <span class="status-badge ${statusClass}">${statusText}</span>
       </div>
     </div>
@@ -198,8 +199,16 @@ function createAccountCard(account) {
     </div>
   `;
 
+  // Handle delete button click
+  const deleteBtn = card.querySelector('.delete-account-btn');
+  deleteBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await handleDeleteAccount(account.login, account.label);
+  });
+
+  // Handle card click to show chart
   card.addEventListener('click', (e) => {
-    if (e.target.closest('.account-actions')) return;
+    if (e.target.closest('.delete-account-btn')) return;
     showChartModal(account.login, account.label);
   });
 
@@ -216,6 +225,20 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+async function handleDeleteAccount(login, label) {
+  const confirmed = confirm(`Are you sure you want to delete account "${label}" (${login})?\n\nThis will remove all associated data and cannot be undone.`);
+
+  if (!confirmed) return;
+
+  try {
+    await deleteAccount(login);
+    await loadAccounts();
+  } catch (err) {
+    console.error('Error deleting account:', err);
+    alert('Failed to delete account. Please try again.');
+  }
 }
 
 async function loadAccounts() {
