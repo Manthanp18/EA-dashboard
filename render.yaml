@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: mt5-dashboard
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DB_PATH
+        value: ./data/mt5.db
+      - key: DASHBOARD_PASSWORD
+        generateValue: true
+      - key: RATE_LIMIT_PUSH
+        value: 60
+      - key: RATE_LIMIT_STATE
+        value: 120
+    disk:
+      name: mt5-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

@@ -13,277 +13,233 @@ Real-time web dashboard for monitoring multiple MT5 Expert Advisor accounts with
 - **Secure Authentication**: Master password + API keys per account (no MT5 passwords stored)
 - **Auto-pruning**: Keeps last 90 days of data, saves max 1 snapshot per 15 seconds
 
-## Quick Start
+## 🚀 Deploy to Render
 
-### 1. Install Dependencies
+### 1. Fork or Import Repository
+
+1. Go to [Render Dashboard](https://dashboard.render.com/)
+2. Click **"New +"** → **"Web Service"**
+3. Connect your GitHub account
+4. Select this repository: `Manthanp18/EA-dashboard`
+
+### 2. Configure Service
+
+Render will auto-detect settings, or enter manually:
+
+- **Name**: `mt5-dashboard`
+- **Runtime**: `Node`
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
+
+### 3. Add Environment Variables
+
+Click **"Advanced"** and add:
+
+| Key | Value |
+|-----|-------|
+| `PORT` | `10000` |
+| `DB_PATH` | `./data/mt5.db` |
+| `DASHBOARD_PASSWORD` | `YourSecurePassword123!` |
+| `RATE_LIMIT_PUSH` | `60` |
+| `RATE_LIMIT_STATE` | `120` |
+
+### 4. Add Persistent Disk
+
+In **"Advanced"** settings:
+- Click **"Add Disk"**
+- **Name**: `mt5-data`
+- **Mount Path**: `/opt/render/project/src/data`
+- **Size**: `1 GB` (free tier)
+
+### 5. Deploy
+
+Click **"Create Web Service"**
+
+Render will:
+- ✅ Build your app
+- ✅ Deploy with HTTPS automatically
+- ✅ Give you a URL like: `https://mt5-dashboard-xxxx.onrender.com`
+
+---
+
+## 📱 Access Your Dashboard
+
+Once deployed, visit your Render URL:
+```
+https://mt5-dashboard-xxxx.onrender.com
+```
+
+Login with the password you set in environment variables.
+
+---
+
+## 🔧 Configure MT5 EA
+
+### 1. Whitelist Your Render URL in MT5
+
+**In MT5:**
+1. Tools > Options > Expert Advisors
+2. Check "Allow WebRequest for listed URL"
+3. Add your Render URL:
+   ```
+   https://mt5-dashboard-xxxx.onrender.com
+   ```
+   *(Replace with your actual Render URL)*
+
+### 2. Add Account in Dashboard
+
+1. Visit your dashboard
+2. Login with your password
+3. Click **"+ Add Account"**
+4. Enter:
+   - MT5 Account Number
+   - Label (friendly name)
+5. **SAVE THE API KEY** (shown only once!)
+
+### 3. Configure EA Settings
+
+In MT5, attach your EA and set:
+
+| Input | Value |
+|-------|-------|
+| **InpApiUrl** | `https://mt5-dashboard-xxxx.onrender.com/api/push` |
+| **InpApiKey** | (API key from dashboard) |
+| **InpPushSeconds** | `5` |
+| **InpMagicFilter** | `0` |
+
+---
+
+## 💻 Local Development
+
+### 1. Clone Repository
+
+```bash
+git clone https://github.com/Manthanp18/EA-dashboard.git
+cd EA-dashboard
+```
+
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 2. Configure Environment
+### 3. Configure Environment
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-Set your dashboard password:
-
+Set your values:
 ```env
 PORT=8000
 DB_PATH=./data/mt5.db
-DASHBOARD_PASSWORD=YOUR_SECURE_PASSWORD_HERE  # Change this!
+DASHBOARD_PASSWORD=changeme123
 RATE_LIMIT_PUSH=60
 RATE_LIMIT_STATE=120
 ```
 
-### 3. Start the Server
+### 4. Run Locally
 
 ```bash
-node server.js
+npm start
 ```
 
-Visit `http://localhost:8000`
+Visit: `http://localhost:8000`
 
-### 4. Login to Dashboard
+### 5. Add Account via CLI (Optional)
 
-Use the dashboard password from your `.env` file:
-
-```
-Password: YOUR_SECURE_PASSWORD_HERE
+```bash
+node add-account.js 12345678 "My Account"
 ```
 
-### 5. Add Your First Account
+Or use the dashboard UI (easier).
 
-1. Click **"+ Add Account"**
-2. Enter MT5 account number and label
-3. **SAVE THE API KEY** shown (it won't be shown again!)
-4. Configure your EA with this API key
+---
 
-## MT5 EA Configuration
+## 🎯 Usage
 
-### 1. Copy Modified EA to MT5
+### Dashboard Login
 
-Place `Straddle1.1.v1.60 (2).mq5` in:
-
-```
-File > Open Data Folder > MQL5 > Experts
-```
-
-### 2. Compile
-
-Open MetaEditor (F4) and compile the EA.
-
-### 3. Whitelist API URL
-
-**CRITICAL**: MT5 blocks WebRequest by default.
-
-1. Tools > Options > Expert Advisors
-2. Check "Allow WebRequest for listed URL"
-3. Add: `http://localhost:8000/api/push` (or your production URL)
-4. Click OK
-
-### 4. Configure EA Inputs
-
-| Input | Value | Description |
-|-------|-------|-------------|
-| **InpApiUrl** | `http://localhost:8000/api/push` | Your dashboard API endpoint |
-| **InpApiKey** | (from dashboard) | API key from "+ Add Account" |
-| **InpPushSeconds** | `5` | Push interval (minimum 1 second) |
-| **InpMagicFilter** | `0` | 0 = all positions, >0 = specific magic |
-
-## Dashboard Usage
-
-### Main Dashboard
-
-After logging in, you'll see all your accounts in a grid:
-
-- **Account Cards**: Each card shows live metrics for one MT5 account
-- **Green Badge**: EA Online (pushed data within last 30 seconds)
-- **Gray Badge**: EA Offline (no push in 30+ seconds)
-- **Auto-Refresh**: Dashboard updates every 3 seconds
-
-### View Account Details
-
-Click any account card to view:
-
-- Historical chart (Equity + Net Bank)
-- Time range selector (1H / 24H / 7D)
+- Visit your Render URL
+- Enter dashboard password
+- See all accounts at once
 
 ### Add New Account
 
 1. Click **"+ Add Account"**
-2. Enter:
-   - **MT5 Account Number**: Your MT5 login
-   - **Label**: Friendly name (e.g., "Live Account", "Demo EUR/USD")
-3. Click **"Add Account"**
-4. **SAVE THE API KEY** immediately
-5. Configure your EA with this API key
+2. Enter MT5 login and label
+3. Copy the API key
+4. Configure EA with that API key
 
-### Remove Account
+### View Account Details
 
-Currently via backend only:
+- Click any account card
+- See historical charts
+- Toggle time ranges (1H / 24H / 7D)
 
-```bash
-# Using node CLI (add this script later)
-# Or direct SQL
-sqlite3 data/mt5.db "DELETE FROM accounts WHERE login = 12345678"
-```
+---
 
-## Deployment
+## 🔒 Security
 
-### Option 1: pm2 + Caddy (Recommended)
+- **Dashboard Password**: Set via environment variable
+- **API Keys**: SHA-256 hashed, one per account
+- **Sessions**: 30-day expiry
+- **HTTPS**: Automatic via Render
+- **Never commit**: `.env` or database files
 
-```bash
-# Install pm2
-npm install -g pm2
+---
 
-# Start app
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
+## 🐛 Troubleshooting
 
-# Install Caddy (Ubuntu/Debian)
-sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-sudo apt update
-sudo apt install caddy
+### EA Not Pushing Data
 
-# Configure Caddy
-sudo cp Caddyfile.example /etc/caddy/Caddyfile
-sudo nano /etc/caddy/Caddyfile  # Edit domain
-sudo systemctl enable caddy
-sudo systemctl start caddy
-```
+1. **Check MT5 Journal** for errors
+2. **Error 4060**: URL not whitelisted
+   - Add Render URL to MT5 whitelist
+3. **Check EA Settings**: Verify API URL and key match dashboard
 
-### Option 2: pm2 + Nginx
+### Dashboard Shows "EA Offline"
 
-```bash
-# Install Nginx
-sudo apt install -y nginx certbot python3-certbot-nginx
+- EA must be running with correct API key
+- Check Render logs for errors
+- Verify dashboard password is correct
 
-# Configure
-sudo cp nginx.conf.example /etc/nginx/sites-available/mt5-dashboard
-sudo nano /etc/nginx/sites-available/mt5-dashboard  # Edit domain
-sudo ln -s /etc/nginx/sites-available/mt5-dashboard /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
+### Free Tier Sleep Issue
 
-# Get SSL
-sudo certbot --nginx -d yourdomain.com
+Render free tier sleeps after 15 minutes of inactivity:
+- First request after sleep takes ~30 seconds to wake up
+- Upgrade to paid plan ($7/month) for 24/7 uptime
+- Or use a free uptime monitor to ping every 10 minutes
 
-# Start app
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
-```
+---
 
-## API Reference
+## 📊 API Reference
 
 ### Dashboard Endpoints (require session token)
 
 #### POST /api/dashboard/login
-
-Login with master password, get session token.
-
-**Request:**
 ```json
 {
-  "password": "your_dashboard_password"
+  "password": "your_password"
 }
 ```
 
-**Response:**
-```json
-{
-  "token": "088039b762270c918f7b52f5be27a54073a3b764e34f6ab0febd5492ded8c4f9"
-}
-```
-
-Use this token in `X-Session-Token` header for all dashboard endpoints.
+Returns session token.
 
 #### GET /api/dashboard/accounts
-
 Get all accounts with latest state.
 
-**Headers:**
-- `X-Session-Token`: (from login)
-
-**Response:**
-```json
-{
-  "accounts": [
-    {
-      "login": 12345678,
-      "label": "Live Account",
-      "balance": 10000.50,
-      "equity": 10250.75,
-      "running_pnl": 250.25,
-      "net_bank": 9800.00,
-      "currency": "USD",
-      "server": "Broker-Live",
-      "is_online": true,
-      "last_update": 1793716021
-    }
-  ]
-}
-```
-
 #### POST /api/dashboard/accounts
-
-Add new account to monitor.
-
-**Headers:**
-- `X-Session-Token`: (from login)
-
-**Request:**
-```json
-{
-  "login": 87654321,
-  "label": "Demo Account"
-}
-```
-
-**Response:**
-```json
-{
-  "login": 87654321,
-  "label": "Demo Account",
-  "api_key": "7a4098dcc0d8a93177a478df54930fe63412d38a5478926ba11f0947d2f07550",
-  "message": "Account created. Save the API key - it will not be shown again."
-}
-```
+Add new account, returns API key.
 
 #### GET /api/dashboard/history/:login?hours=24
+Get historical data for charts.
 
-Get historical snapshots for an account.
-
-**Headers:**
-- `X-Session-Token`: (from login)
-
-**Response:**
-```json
-{
-  "login": 12345678,
-  "hours": 24,
-  "count": 120,
-  "snapshots": [...]
-}
-```
-
-### EA Push Endpoint (uses API key)
+### EA Push Endpoint
 
 #### POST /api/push
-
-EA pushes metrics here (every 5 seconds).
-
-**Headers:**
-- `X-API-Key`: (account's API key)
-- `Content-Type`: application/json
-
-**Request:**
 ```json
 {
   "login": 12345678,
@@ -297,81 +253,43 @@ EA pushes metrics here (every 5 seconds).
 }
 ```
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "snapshot_id": 1
-}
-```
+Headers: `X-API-Key: your_api_key`
 
-## Troubleshooting
+---
 
-### EA not pushing data
+## 🔄 Update Deployment
 
-1. **MT5 Journal errors**:
-   - Error 4060: URL not whitelisted → Add URL in Tools > Options
-   - Other errors: Check API URL and API key match
-
-2. **WebRequest doesn't work in Strategy Tester** (this is normal)
-
-### Dashboard shows "EA Offline"
-
-- Check EA is running
-- Verify `InpApiUrl` and `InpApiKey` match dashboard
-- Check backend: `pm2 status` and `pm2 logs`
-
-### Can't login to dashboard
-
-- Check `DASHBOARD_PASSWORD` in `.env`
-- Default password: `changeme123`
-
-### How to change dashboard password
+Render auto-deploys on git push:
 
 ```bash
-nano .env  # Edit DASHBOARD_PASSWORD
-pm2 restart mt5-dashboard
+git add .
+git commit -m "Update dashboard"
+git push origin main
 ```
 
-### How to add account via CLI
+Render will rebuild and redeploy automatically!
 
-You can still use the CLI script:
+---
 
-```bash
-node add-account.js 12345678 "My Account"
-```
+## 📝 Environment Variables
 
-But the dashboard UI is easier!
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port | `10000` |
+| `DB_PATH` | SQLite database path | `./data/mt5.db` |
+| `DASHBOARD_PASSWORD` | Master login password | (required) |
+| `RATE_LIMIT_PUSH` | EA push rate limit/min | `60` |
+| `RATE_LIMIT_STATE` | Dashboard API rate limit/min | `120` |
 
-## Security
+---
 
-- Dashboard password: Simple password auth (change in `.env`)
-- API keys: SHA-256 hashed, timing-safe comparison
-- Sessions: 30-day expiry, stored in SQLite
-- HTTPS: Required for production (Caddy/Nginx handle this)
-- Never commit `.env` or `data/*.db`
+## 📧 Support
 
-## Maintenance
+- **GitHub Issues**: https://github.com/Manthanp18/EA-dashboard/issues
+- **Documentation**: See this README
 
-```bash
-# View logs
-pm2 logs mt5-dashboard
+---
 
-# Restart
-pm2 restart mt5-dashboard
-
-# Update code
-git pull  # or copy new files
-npm install
-pm2 restart mt5-dashboard
-
-# Database size
-du -h data/mt5.db
-
-# Vacuum database
-sqlite3 data/mt5.db "VACUUM;"
-```
-
-## License
+## 📄 License
 
 MIT
