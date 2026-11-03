@@ -12,9 +12,9 @@ body {
 }
 
 .container {
-  max-width: 1600px;
+  max-width: 1800px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
 }
 
 /* Login Screen */
@@ -54,27 +54,27 @@ body {
 /* Dashboard Header */
 .dashboard-header {
   background: #ffffff;
-  padding: 24px 32px;
-  border-radius: 16px;
-  margin-bottom: 24px;
+  padding: 16px 24px;
+  border-radius: 12px;
+  margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 16px;
 }
 
 .dashboard-header h1 {
-  font-size: 28px;
+  font-size: 22px;
   color: #111827;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   font-weight: 700;
 }
 
 .header-subtitle {
   color: #6b7280;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .header-actions {
@@ -85,11 +85,11 @@ body {
 
 /* Buttons */
 .btn {
-  padding: 11px 24px;
+  padding: 8px 18px;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -208,23 +208,23 @@ body {
 /* Accounts Grid */
 .accounts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
 .account-card {
   background: #ffffff;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid #e5e7eb;
-  padding: 24px;
-  transition: all 0.3s ease;
+  padding: 16px;
+  transition: all 0.2s ease;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .account-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
   border-color: #3b82f6;
 }
 
@@ -232,21 +232,21 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #f3f4f6;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .account-info h3 {
   color: #111827;
-  font-size: 20px;
-  margin-bottom: 6px;
+  font-size: 16px;
+  margin-bottom: 4px;
   font-weight: 700;
 }
 
 .account-login {
   color: #6b7280;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -256,13 +256,13 @@ body {
 }
 
 .status-badge {
-  padding: 8px 16px;
-  border-radius: 24px;
-  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 10px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -279,8 +279,8 @@ body {
 
 .status-badge::before {
   content: '';
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
 }
@@ -298,13 +298,13 @@ body {
 .metrics-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 10px;
 }
 
 .metric {
-  padding: 16px;
+  padding: 10px;
   background: #f9fafb;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e5e7eb;
   transition: all 0.2s;
 }
@@ -315,16 +315,16 @@ body {
 }
 
 .metric-label {
-  font-size: 11px;
+  font-size: 9px;
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .metric-value {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.5px;
 }
@@ -342,9 +342,9 @@ body {
 }
 
 .metric-currency {
-  font-size: 12px;
+  font-size: 10px;
   color: #9ca3af;
-  margin-left: 4px;
+  margin-left: 3px;
   font-weight: 600;
 }
 
