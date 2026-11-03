@@ -38,7 +38,7 @@ Click **"Advanced"** and add:
 | Key | Value |
 |-----|-------|
 | `PORT` | `10000` |
-| `DB_PATH` | `./data/mt5.db` |
+| `DB_PATH` | `/opt/render/project/src/data/mt5.db` |
 | `DASHBOARD_PASSWORD` | `YourSecurePassword123!` |
 | `RATE_LIMIT_PUSH` | `60` |
 | `RATE_LIMIT_STATE` | `120` |
@@ -276,7 +276,7 @@ Render will rebuild and redeploy automatically!
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `10000` |
-| `DB_PATH` | SQLite database path | `./data/mt5.db` |
+| `DB_PATH` | SQLite database path | `./data/mt5.db` (local) or `/opt/render/project/src/data/mt5.db` (Render) |
 | `DASHBOARD_PASSWORD` | Master login password | (required) |
 | `RATE_LIMIT_PUSH` | EA push rate limit/min | `60` |
 | `RATE_LIMIT_STATE` | Dashboard API rate limit/min | `120` |

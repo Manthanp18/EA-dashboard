@@ -10,7 +10,7 @@ services:
       - key: PORT
         value: 10000
       - key: DB_PATH
-        value: ./data/mt5.db
+        value: /opt/render/project/src/data/mt5.db
       - key: DASHBOARD_PASSWORD
         generateValue: true
       - key: RATE_LIMIT_PUSH
