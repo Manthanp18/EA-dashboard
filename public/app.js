@@ -201,10 +201,12 @@ function createAccountCard(account) {
 
   // Handle delete button click
   const deleteBtn = card.querySelector('.delete-account-btn');
-  deleteBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await handleDeleteAccount(account.login, account.label);
-  });
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await handleDeleteAccount(account.login, account.label);
+    });
+  }
 
   // Handle card click to show chart
   card.addEventListener('click', (e) => {
