@@ -225,6 +225,11 @@ function getAllAccounts() {
   `);
   const accounts = stmt.all();
   console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
+  if (accounts.length > 0) {
+    accounts.forEach(acc => {
+      console.log(`   - Login: ${acc.login}, Label: "${acc.label}"`);
+    });
+  }
   return accounts;
 }
 

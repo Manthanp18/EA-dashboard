@@ -45,7 +45,13 @@ function hideError(element) {
 }
 
 function getSessionToken() {
-  return sessionStorage.getItem(SESSION_TOKEN_KEY);
+  const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+  if (token) {
+    console.log('✅ Session token found');
+  } else {
+    console.log('❌ No session token found');
+  }
+  return token;
 }
 
 function setSessionToken(token) {
