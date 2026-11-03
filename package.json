@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Live dashboard for MT5 Expert Advisor with real-time metrics",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
