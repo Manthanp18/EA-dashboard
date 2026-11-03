@@ -4,6 +4,8 @@ services:
     runtime: node
     buildCommand: npm install
     startCommand: npm start
+    env: node
+    nodeVersion: 18
     envVars:
       - key: PORT
         value: 10000
