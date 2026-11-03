@@ -6,13 +6,24 @@ const fs = require('fs');
 const dbPath = process.env.DB_PATH || './data/mt5.db';
 const dbDir = path.dirname(dbPath);
 
+console.log('=== DATABASE INITIALIZATION ===');
+console.log('DB_PATH from env:', process.env.DB_PATH);
+console.log('Resolved DB path:', dbPath);
+console.log('DB directory:', dbDir);
+
 // Ensure data directory exists
 if (!fs.existsSync(dbDir)) {
+  console.log('Creating DB directory:', dbDir);
   fs.mkdirSync(dbDir, { recursive: true });
+} else {
+  console.log('DB directory already exists');
 }
 
 const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
+
+console.log('Database initialized successfully at:', dbPath);
+console.log('===============================');
 
 // Initialize schema
 db.exec(`
@@ -67,7 +78,9 @@ function compareApiKey(inputKey, storedHash) {
 function addAccount(login, apiKey, label) {
   const apiKeyHash = hashApiKey(apiKey);
   const stmt = db.prepare('INSERT INTO accounts (login, api_key_hash, label) VALUES (?, ?, ?)');
-  return stmt.run(login, apiKeyHash, label);
+  const result = stmt.run(login, apiKeyHash, label);
+  console.log(`✅ Account added: login=${login}, label="${label}"`);
+  return result;
 }
 
 // Verify account API key
@@ -166,7 +179,9 @@ function getAllAccounts() {
     ) s ON a.login = s.login
     ORDER BY a.login
   `);
-  return stmt.all();
+  const accounts = stmt.all();
+  console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
+  return accounts;
 }
 
 // Get account info by login
