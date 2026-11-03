@@ -29,11 +29,11 @@ app.set('trust proxy', 1);
 const sseClients = new Set();
 
 // SSE: Broadcast account update to all connected dashboards
-function broadcastAccountUpdate(login) {
+async function broadcastAccountUpdate(login) {
   if (sseClients.size === 0) return;
 
   try {
-    const accounts = getAllAccounts();
+    const accounts = await getAllAccounts();
     const now = Math.floor(Date.now() / 1000);
 
     const enrichedAccounts = accounts.map(account => ({
@@ -85,7 +85,7 @@ const dashboardLimiter = rateLimit({
 });
 
 // Session middleware
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   // Check header first, then query param (for SSE)
   const token = req.headers['x-session-token'] || req.query.token;
 
@@ -93,7 +93,8 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Missing session token' });
   }
 
-  if (!verifySession(token)) {
+  const isValid = await verifySession(token);
+  if (!isValid) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
 
@@ -112,7 +113,7 @@ function validateNumber(value, name, allowNegative = true) {
 }
 
 // POST /api/push - EA pushes data here (no session required, uses API key)
-app.post('/api/push', pushLimiter, (req, res) => {
+app.post('/api/push', pushLimiter, async (req, res) => {
   try {
     const apiKey = req.headers['x-api-key'];
 
@@ -126,14 +127,15 @@ app.post('/api/push', pushLimiter, (req, res) => {
       return res.status(400).json({ error: 'Invalid login' });
     }
 
-    if (!verifyAccount(login, apiKey)) {
+    const isValid = await verifyAccount(login, apiKey);
+    if (!isValid) {
       return res.status(401).json({ error: 'Invalid API key' });
     }
 
     // Auto-update account label if account_name is provided by EA
     if (account_name && typeof account_name === 'string' && account_name.trim().length > 0) {
       try {
-        updateAccountLabel(login, account_name.trim());
+        await updateAccountLabel(login, account_name.trim());
       } catch (err) {
         console.error(`Error updating account label for ${login}:`, err.message);
       }
@@ -152,7 +154,7 @@ app.post('/api/push', pushLimiter, (req, res) => {
       return res.status(400).json({ error: err.message });
     }
 
-    const result = addSnapshot(login, {
+    const result = await addSnapshot(login, {
       balance,
       equity,
       cycle_net,
@@ -168,9 +170,9 @@ app.post('/api/push', pushLimiter, (req, res) => {
     }
 
     // Broadcast update to all connected dashboards via SSE
-    broadcastAccountUpdate(login);
+    await broadcastAccountUpdate(login);
 
-    res.status(200).json({ status: 'ok', snapshot_id: result.lastInsertRowid });
+    res.status(200).json({ status: 'ok', snapshot_id: result.id });
   } catch (err) {
     console.error('Error in /api/push:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -178,7 +180,7 @@ app.post('/api/push', pushLimiter, (req, res) => {
 });
 
 // POST /api/dashboard/login - Dashboard login with master password
-app.post('/api/dashboard/login', dashboardLimiter, (req, res) => {
+app.post('/api/dashboard/login', dashboardLimiter, async (req, res) => {
   try {
     const { password } = req.body;
 
@@ -192,7 +194,7 @@ app.post('/api/dashboard/login', dashboardLimiter, (req, res) => {
 
     // Generate session token
     const token = crypto.randomBytes(32).toString('hex');
-    createSession(token);
+    await createSession(token);
 
     res.status(200).json({ token });
   } catch (err) {
@@ -202,11 +204,11 @@ app.post('/api/dashboard/login', dashboardLimiter, (req, res) => {
 });
 
 // POST /api/dashboard/logout
-app.post('/api/dashboard/logout', (req, res) => {
+app.post('/api/dashboard/logout', async (req, res) => {
   try {
     const token = req.headers['x-session-token'];
     if (token) {
-      deleteSession(token);
+      await deleteSession(token);
     }
     res.status(200).json({ status: 'ok' });
   } catch (err) {
@@ -216,7 +218,7 @@ app.post('/api/dashboard/logout', (req, res) => {
 });
 
 // GET /api/dashboard/stream - Server-Sent Events for real-time updates
-app.get('/api/dashboard/stream', requireAuth, (req, res) => {
+app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
   // Set SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -228,7 +230,7 @@ app.get('/api/dashboard/stream', requireAuth, (req, res) => {
 
   // Send initial data
   try {
-    const accounts = getAllAccounts();
+    const accounts = await getAllAccounts();
     const now = Math.floor(Date.now() / 1000);
 
     const enrichedAccounts = accounts.map(account => ({
@@ -263,9 +265,9 @@ app.get('/api/dashboard/stream', requireAuth, (req, res) => {
 });
 
 // GET /api/dashboard/accounts - Get all accounts with latest state
-app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, (req, res) => {
+app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, res) => {
   try {
-    const accounts = getAllAccounts();
+    const accounts = await getAllAccounts();
     const now = Math.floor(Date.now() / 1000);
 
     const enrichedAccounts = accounts.map(account => ({
@@ -290,7 +292,7 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, (req, res) => 
 });
 
 // POST /api/dashboard/accounts - Add new account to monitor
-app.post('/api/dashboard/accounts', requireAuth, dashboardLimiter, (req, res) => {
+app.post('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, res) => {
   try {
     const { login, label } = req.body;
 
@@ -306,9 +308,9 @@ app.post('/api/dashboard/accounts', requireAuth, dashboardLimiter, (req, res) =>
     const apiKey = crypto.randomBytes(32).toString('hex');
 
     try {
-      addAccount(login, apiKey, label.trim());
+      await addAccount(login, apiKey, label.trim());
     } catch (err) {
-      if (err.code === 'SQLITE_CONSTRAINT') {
+      if (err.code === '23505') { // PostgreSQL unique violation
         return res.status(409).json({ error: 'Account already exists' });
       }
       throw err;
@@ -327,7 +329,7 @@ app.post('/api/dashboard/accounts', requireAuth, dashboardLimiter, (req, res) =>
 });
 
 // DELETE /api/dashboard/accounts/:login - Remove account
-app.delete('/api/dashboard/accounts/:login', requireAuth, dashboardLimiter, (req, res) => {
+app.delete('/api/dashboard/accounts/:login', requireAuth, dashboardLimiter, async (req, res) => {
   try {
     const login = parseInt(req.params.login, 10);
 
@@ -335,7 +337,7 @@ app.delete('/api/dashboard/accounts/:login', requireAuth, dashboardLimiter, (req
       return res.status(400).json({ error: 'Invalid login' });
     }
 
-    const result = deleteAccount(login);
+    const result = await deleteAccount(login);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Account not found' });
@@ -349,7 +351,7 @@ app.delete('/api/dashboard/accounts/:login', requireAuth, dashboardLimiter, (req
 });
 
 // GET /api/dashboard/state/:login - Get latest state for specific account
-app.get('/api/dashboard/state/:login', requireAuth, dashboardLimiter, (req, res) => {
+app.get('/api/dashboard/state/:login', requireAuth, dashboardLimiter, async (req, res) => {
   try {
     const login = parseInt(req.params.login, 10);
 
@@ -357,7 +359,7 @@ app.get('/api/dashboard/state/:login', requireAuth, dashboardLimiter, (req, res)
       return res.status(400).json({ error: 'Invalid login' });
     }
 
-    const snapshot = getLatestSnapshot(login);
+    const snapshot = await getLatestSnapshot(login);
 
     if (!snapshot) {
       return res.status(404).json({ error: 'No data available for this account' });
@@ -377,7 +379,7 @@ app.get('/api/dashboard/state/:login', requireAuth, dashboardLimiter, (req, res)
 });
 
 // GET /api/dashboard/history/:login - Get historical snapshots
-app.get('/api/dashboard/history/:login', requireAuth, dashboardLimiter, (req, res) => {
+app.get('/api/dashboard/history/:login', requireAuth, dashboardLimiter, async (req, res) => {
   try {
     const login = parseInt(req.params.login, 10);
     const hours = parseInt(req.query.hours, 10) || 24;
@@ -390,7 +392,7 @@ app.get('/api/dashboard/history/:login', requireAuth, dashboardLimiter, (req, re
       return res.status(400).json({ error: 'Hours must be between 1 and 168' });
     }
 
-    const snapshots = getHistory(login, hours);
+    const snapshots = await getHistory(login, hours);
 
     res.status(200).json({
       login,

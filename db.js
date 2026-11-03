@@ -1,51 +1,46 @@
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const crypto = require('crypto');
-const path = require('path');
-const fs = require('fs');
 
-const dbPath = process.env.DB_PATH || './data/mt5.db';
-const dbDir = path.dirname(dbPath);
+// PostgreSQL connection
+const DATABASE_URL = process.env.DATABASE_URL;
 
-console.log('=== DATABASE INITIALIZATION ===');
-console.log('DB_PATH from env:', process.env.DB_PATH);
-console.log('Resolved DB path:', dbPath);
-console.log('DB directory:', dbDir);
-
-// Ensure data directory exists
-if (!fs.existsSync(dbDir)) {
-  console.log('⚠️  DB directory does NOT exist, creating:', dbDir);
-  fs.mkdirSync(dbDir, { recursive: true });
-  console.log('⚠️  WARNING: Fresh directory created - persistent disk may not be mounted!');
-} else {
-  console.log('✅ DB directory already exists');
-
-  // Check if database file exists
-  if (fs.existsSync(dbPath)) {
-    const stats = fs.statSync(dbPath);
-    console.log(`✅ Database file exists (${(stats.size / 1024).toFixed(2)} KB)`);
-  } else {
-    console.log('⚠️  Database file does NOT exist - will be created');
-  }
+if (!DATABASE_URL) {
+  console.error('❌ ERROR: DATABASE_URL environment variable is required');
+  process.exit(1);
 }
 
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+console.log('=== DATABASE INITIALIZATION ===');
+console.log('Connecting to PostgreSQL...');
 
-console.log('Database initialized successfully at:', dbPath);
+const pool = new Pool({
+  connectionString: DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-// Migration: Drop old snapshots table if columns don't match
-try {
-  const checkStmt = db.prepare("PRAGMA table_info(snapshots)");
-  const columns = checkStmt.all();
-  const hasOldSchema = columns.some(col => col.name === 'running_pnl' || col.name === 'net_bank');
+// Test connection
+pool.query('SELECT NOW()')
+  .then(() => {
+    console.log('✅ PostgreSQL connected successfully');
+  })
+  .catch(err => {
+    console.error('❌ PostgreSQL connection failed:', err.message);
+    process.exit(1);
+  });
 
-  if (hasOldSchema) {
-    console.log('⚠️  Old schema detected, migrating database...');
-    db.exec('DROP TABLE IF EXISTS snapshots');
-    db.exec(`
-      CREATE TABLE snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        login INTEGER NOT NULL,
+// Initialize schema
+async function initializeSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS accounts (
+        login BIGINT PRIMARY KEY,
+        api_key_hash TEXT NOT NULL,
+        label TEXT NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+      );
+
+      CREATE TABLE IF NOT EXISTS snapshots (
+        id SERIAL PRIMARY KEY,
+        login BIGINT NOT NULL,
         balance REAL NOT NULL,
         equity REAL NOT NULL,
         cycle_net REAL NOT NULL,
@@ -53,57 +48,37 @@ try {
         floating_pnl REAL NOT NULL,
         currency TEXT NOT NULL DEFAULT 'USD',
         server TEXT,
-        ea_timestamp INTEGER,
-        received_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+        ea_timestamp BIGINT,
+        received_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
         FOREIGN KEY (login) REFERENCES accounts(login)
       );
-      CREATE INDEX idx_snapshots_login ON snapshots(login);
-      CREATE INDEX idx_snapshots_received_at ON snapshots(received_at);
-      CREATE INDEX idx_snapshots_login_received ON snapshots(login, received_at DESC);
+
+      CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+        expires_at BIGINT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_snapshots_login ON snapshots(login);
+      CREATE INDEX IF NOT EXISTS idx_snapshots_received_at ON snapshots(received_at);
+      CREATE INDEX IF NOT EXISTS idx_snapshots_login_received ON snapshots(login, received_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
     `);
-    console.log('✅ Database migrated to new schema');
+
+    console.log('✅ Database schema initialized');
+  } catch (err) {
+    console.error('❌ Schema initialization error:', err.message);
+    throw err;
   }
-} catch (err) {
-  console.error('Migration error (non-fatal):', err.message);
 }
 
 console.log('===============================');
 
-// Initialize schema
-db.exec(`
-  CREATE TABLE IF NOT EXISTS accounts (
-    login INTEGER PRIMARY KEY,
-    api_key_hash TEXT NOT NULL,
-    label TEXT NOT NULL,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS snapshots (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    login INTEGER NOT NULL,
-    balance REAL NOT NULL,
-    equity REAL NOT NULL,
-    cycle_net REAL NOT NULL,
-    realized_bank REAL NOT NULL,
-    floating_pnl REAL NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'USD',
-    server TEXT,
-    ea_timestamp INTEGER,
-    received_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    FOREIGN KEY (login) REFERENCES accounts(login)
-  );
-
-  CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
-    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    expires_at INTEGER NOT NULL
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_snapshots_login ON snapshots(login);
-  CREATE INDEX IF NOT EXISTS idx_snapshots_received_at ON snapshots(received_at);
-  CREATE INDEX IF NOT EXISTS idx_snapshots_login_received ON snapshots(login, received_at DESC);
-  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
-`);
+// Initialize schema on startup
+initializeSchema().catch(err => {
+  console.error('Fatal error during schema initialization:', err);
+  process.exit(1);
+});
 
 // Hash API key using SHA-256
 function hashApiKey(apiKey) {
@@ -120,94 +95,104 @@ function compareApiKey(inputKey, storedHash) {
 }
 
 // Add a new account
-function addAccount(login, apiKey, label) {
+async function addAccount(login, apiKey, label) {
   const apiKeyHash = hashApiKey(apiKey);
-  const stmt = db.prepare('INSERT INTO accounts (login, api_key_hash, label) VALUES (?, ?, ?)');
-  const result = stmt.run(login, apiKeyHash, label);
+  const result = await pool.query(
+    'INSERT INTO accounts (login, api_key_hash, label) VALUES ($1, $2, $3) RETURNING *',
+    [login, apiKeyHash, label]
+  );
   console.log(`✅ Account added: login=${login}, label="${label}"`);
-  return result;
+  return result.rows[0];
 }
 
 // Update account label (called when EA sends account_name)
-function updateAccountLabel(login, newLabel) {
-  const stmt = db.prepare('UPDATE accounts SET label = ? WHERE login = ?');
-  return stmt.run(newLabel, login);
+async function updateAccountLabel(login, newLabel) {
+  const result = await pool.query(
+    'UPDATE accounts SET label = $1 WHERE login = $2',
+    [newLabel, login]
+  );
+  return result;
 }
 
 // Verify account API key
-function verifyAccount(login, apiKey) {
-  const stmt = db.prepare('SELECT api_key_hash FROM accounts WHERE login = ?');
-  const account = stmt.get(login);
+async function verifyAccount(login, apiKey) {
+  const result = await pool.query(
+    'SELECT api_key_hash FROM accounts WHERE login = $1',
+    [login]
+  );
 
-  if (!account) {
+  if (result.rows.length === 0) {
     return false;
   }
 
   try {
-    return compareApiKey(apiKey, account.api_key_hash);
+    return compareApiKey(apiKey, result.rows[0].api_key_hash);
   } catch (err) {
     return false;
   }
 }
 
 // Add a snapshot (with rate limiting - max once per 15 seconds per account)
-function addSnapshot(login, data) {
+async function addSnapshot(login, data) {
   const now = Math.floor(Date.now() / 1000);
 
   // Check if we have a recent snapshot (within last 15 seconds)
-  const checkStmt = db.prepare(
-    'SELECT received_at FROM snapshots WHERE login = ? ORDER BY received_at DESC LIMIT 1'
+  const lastSnapshot = await pool.query(
+    'SELECT received_at FROM snapshots WHERE login = $1 ORDER BY received_at DESC LIMIT 1',
+    [login]
   );
-  const lastSnapshot = checkStmt.get(login);
 
-  if (lastSnapshot && (now - lastSnapshot.received_at) < 15) {
+  if (lastSnapshot.rows.length > 0 && (now - lastSnapshot.rows[0].received_at) < 15) {
     return null; // Skip this snapshot
   }
 
-  const stmt = db.prepare(`
-    INSERT INTO snapshots (login, balance, equity, cycle_net, realized_bank, floating_pnl, currency, server, ea_timestamp, received_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  return stmt.run(
-    login,
-    data.balance,
-    data.equity,
-    data.cycle_net,
-    data.realized_bank,
-    data.floating_pnl,
-    data.currency || 'USD',
-    data.server || null,
-    data.ts || null,
-    now
+  const result = await pool.query(
+    `INSERT INTO snapshots (login, balance, equity, cycle_net, realized_bank, floating_pnl, currency, server, ea_timestamp, received_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+    [
+      login,
+      data.balance,
+      data.equity,
+      data.cycle_net,
+      data.realized_bank,
+      data.floating_pnl,
+      data.currency || 'USD',
+      data.server || null,
+      data.ts || null,
+      now
+    ]
   );
+
+  return result.rows[0];
 }
 
 // Get latest snapshot for an account
-function getLatestSnapshot(login) {
-  const stmt = db.prepare(`
-    SELECT * FROM snapshots
-    WHERE login = ?
-    ORDER BY received_at DESC
-    LIMIT 1
-  `);
-  return stmt.get(login);
+async function getLatestSnapshot(login) {
+  const result = await pool.query(
+    `SELECT * FROM snapshots
+     WHERE login = $1
+     ORDER BY received_at DESC
+     LIMIT 1`,
+    [login]
+  );
+  return result.rows[0];
 }
 
 // Get historical snapshots
-function getHistory(login, hours = 24) {
+async function getHistory(login, hours = 24) {
   const sinceTimestamp = Math.floor(Date.now() / 1000) - (hours * 3600);
-  const stmt = db.prepare(`
-    SELECT * FROM snapshots
-    WHERE login = ? AND received_at >= ?
-    ORDER BY received_at ASC
-  `);
-  return stmt.all(login, sinceTimestamp);
+  const result = await pool.query(
+    `SELECT * FROM snapshots
+     WHERE login = $1 AND received_at >= $2
+     ORDER BY received_at ASC`,
+    [login, sinceTimestamp]
+  );
+  return result.rows;
 }
 
 // Get all accounts with their latest snapshots
-function getAllAccounts() {
-  const stmt = db.prepare(`
+async function getAllAccounts() {
+  const result = await pool.query(`
     SELECT
       a.login,
       a.label,
@@ -221,18 +206,17 @@ function getAllAccounts() {
       s.server,
       s.received_at
     FROM accounts a
-    LEFT JOIN (
-      SELECT s1.*
-      FROM snapshots s1
-      INNER JOIN (
-        SELECT login, MAX(received_at) as max_received
-        FROM snapshots
-        GROUP BY login
-      ) s2 ON s1.login = s2.login AND s1.received_at = s2.max_received
-    ) s ON a.login = s.login
+    LEFT JOIN LATERAL (
+      SELECT *
+      FROM snapshots
+      WHERE snapshots.login = a.login
+      ORDER BY received_at DESC
+      LIMIT 1
+    ) s ON true
     ORDER BY a.login
   `);
-  const accounts = stmt.all();
+
+  const accounts = result.rows;
   console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
   if (accounts.length > 0) {
     accounts.forEach(acc => {
@@ -243,62 +227,72 @@ function getAllAccounts() {
 }
 
 // Get account info by login
-function getAccountInfo(login) {
-  const stmt = db.prepare('SELECT login, label, created_at FROM accounts WHERE login = ?');
-  return stmt.get(login);
+async function getAccountInfo(login) {
+  const result = await pool.query(
+    'SELECT login, label, created_at FROM accounts WHERE login = $1',
+    [login]
+  );
+  return result.rows[0];
 }
 
 // Delete account and its snapshots
-function deleteAccount(login) {
-  const deleteSnapshots = db.prepare('DELETE FROM snapshots WHERE login = ?');
-  const deleteAccount = db.prepare('DELETE FROM accounts WHERE login = ?');
-
-  deleteSnapshots.run(login);
-  return deleteAccount.run(login);
+async function deleteAccount(login) {
+  await pool.query('DELETE FROM snapshots WHERE login = $1', [login]);
+  const result = await pool.query('DELETE FROM accounts WHERE login = $1', [login]);
+  return { changes: result.rowCount };
 }
 
 // Session management
-function createSession(token) {
+async function createSession(token) {
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = now + (30 * 24 * 3600); // 30 days
-  const stmt = db.prepare('INSERT INTO sessions (token, created_at, expires_at) VALUES (?, ?, ?)');
-  return stmt.run(token, now, expiresAt);
+  const result = await pool.query(
+    'INSERT INTO sessions (token, created_at, expires_at) VALUES ($1, $2, $3) RETURNING *',
+    [token, now, expiresAt]
+  );
+  return result.rows[0];
 }
 
-function verifySession(token) {
+async function verifySession(token) {
   const now = Math.floor(Date.now() / 1000);
-  const stmt = db.prepare('SELECT * FROM sessions WHERE token = ? AND expires_at > ?');
-  return stmt.get(token, now) !== undefined;
+  const result = await pool.query(
+    'SELECT * FROM sessions WHERE token = $1 AND expires_at > $2',
+    [token, now]
+  );
+  return result.rows.length > 0;
 }
 
-function deleteSession(token) {
-  const stmt = db.prepare('DELETE FROM sessions WHERE token = ?');
-  return stmt.run(token);
+async function deleteSession(token) {
+  const result = await pool.query('DELETE FROM sessions WHERE token = $1', [token]);
+  return { changes: result.rowCount };
 }
 
-function pruneExpiredSessions() {
+async function pruneExpiredSessions() {
   const now = Math.floor(Date.now() / 1000);
-  const stmt = db.prepare('DELETE FROM sessions WHERE expires_at <= ?');
-  return stmt.run(now);
+  const result = await pool.query('DELETE FROM sessions WHERE expires_at <= $1', [now]);
+  return { changes: result.rowCount };
 }
 
 // Prune old snapshots (older than 90 days)
-function pruneOldSnapshots() {
+async function pruneOldSnapshots() {
   const cutoffTimestamp = Math.floor(Date.now() / 1000) - (90 * 24 * 3600);
-  const stmt = db.prepare('DELETE FROM snapshots WHERE received_at < ?');
-  return stmt.run(cutoffTimestamp);
+  const result = await pool.query('DELETE FROM snapshots WHERE received_at < $1', [cutoffTimestamp]);
+  return { changes: result.rowCount };
 }
 
 // Run pruning once on startup and then periodically
-pruneOldSnapshots();
-pruneExpiredSessions();
-setInterval(() => {
-  pruneOldSnapshots();
-  pruneExpiredSessions();
+(async () => {
+  await pruneOldSnapshots();
+  await pruneExpiredSessions();
+})();
+
+setInterval(async () => {
+  await pruneOldSnapshots();
+  await pruneExpiredSessions();
 }, 24 * 60 * 60 * 1000); // Once per day
 
 module.exports = {
-  db,
+  pool,
   hashApiKey,
   addAccount,
   updateAccountLabel,

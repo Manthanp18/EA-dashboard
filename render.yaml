@@ -9,15 +9,20 @@ services:
     envVars:
       - key: PORT
         value: 10000
-      - key: DB_PATH
-        value: /opt/render/project/src/data/mt5.db
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mt5-postgres
+          property: connectionString
+      - key: NODE_ENV
+        value: production
       - key: DASHBOARD_PASSWORD
         generateValue: true
       - key: RATE_LIMIT_PUSH
         value: 300
       - key: RATE_LIMIT_STATE
         value: 120
-    disk:
-      name: mt5-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+
+databases:
+  - name: mt5-postgres
+    databaseName: mt5_dashboard
+    user: mt5_user
