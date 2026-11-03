@@ -21,6 +21,44 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'changeme123';
 
+// SSE: Track active dashboard connections
+const sseClients = new Set();
+
+// SSE: Broadcast account update to all connected dashboards
+function broadcastAccountUpdate(login) {
+  if (sseClients.size === 0) return;
+
+  try {
+    const accounts = getAllAccounts();
+    const now = Math.floor(Date.now() / 1000);
+
+    const enrichedAccounts = accounts.map(account => ({
+      login: account.login,
+      label: account.label,
+      balance: account.balance || 0,
+      equity: account.equity || 0,
+      running_pnl: account.running_pnl || 0,
+      net_bank: account.net_bank || 0,
+      currency: account.currency || 'USD',
+      server: account.server || null,
+      is_online: account.received_at ? (now - account.received_at) < 30 : false,
+      last_update: account.received_at || null
+    }));
+
+    const data = JSON.stringify({ accounts: enrichedAccounts });
+
+    sseClients.forEach(client => {
+      try {
+        client.write(`data: ${data}\n\n`);
+      } catch (err) {
+        sseClients.delete(client);
+      }
+    });
+  } catch (err) {
+    console.error('Error broadcasting SSE update:', err);
+  }
+}
+
 // Middleware
 app.use(express.json());
 
@@ -43,7 +81,8 @@ const dashboardLimiter = rateLimit({
 
 // Session middleware
 function requireAuth(req, res, next) {
-  const token = req.headers['x-session-token'];
+  // Check header first, then query param (for SSE)
+  const token = req.headers['x-session-token'] || req.query.token;
 
   if (!token) {
     return res.status(401).json({ error: 'Missing session token' });
@@ -112,6 +151,9 @@ app.post('/api/push', pushLimiter, (req, res) => {
       return res.status(202).json({ status: 'accepted', message: 'Snapshot received but rate-limited' });
     }
 
+    // Broadcast update to all connected dashboards via SSE
+    broadcastAccountUpdate(login);
+
     res.status(200).json({ status: 'ok', snapshot_id: result.lastInsertRowid });
   } catch (err) {
     console.error('Error in /api/push:', err);
@@ -155,6 +197,52 @@ app.post('/api/dashboard/logout', (req, res) => {
     console.error('Error in /api/dashboard/logout:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// GET /api/dashboard/stream - Server-Sent Events for real-time updates
+app.get('/api/dashboard/stream', requireAuth, (req, res) => {
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+  // Add this client to active connections
+  sseClients.add(res);
+
+  // Send initial data
+  try {
+    const accounts = getAllAccounts();
+    const now = Math.floor(Date.now() / 1000);
+
+    const enrichedAccounts = accounts.map(account => ({
+      login: account.login,
+      label: account.label,
+      balance: account.balance || 0,
+      equity: account.equity || 0,
+      running_pnl: account.running_pnl || 0,
+      net_bank: account.net_bank || 0,
+      currency: account.currency || 'USD',
+      server: account.server || null,
+      is_online: account.received_at ? (now - account.received_at) < 30 : false,
+      last_update: account.received_at || null
+    }));
+
+    res.write(`data: ${JSON.stringify({ accounts: enrichedAccounts })}\n\n`);
+  } catch (err) {
+    console.error('Error sending initial SSE data:', err);
+  }
+
+  // Send heartbeat every 30 seconds to keep connection alive
+  const heartbeat = setInterval(() => {
+    res.write(': heartbeat\n\n');
+  }, 30000);
+
+  // Remove client when connection closes
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
 });
 
 // GET /api/dashboard/accounts - Get all accounts with latest state

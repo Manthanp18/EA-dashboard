@@ -14,7 +14,7 @@ services:
       - key: DASHBOARD_PASSWORD
         generateValue: true
       - key: RATE_LIMIT_PUSH
-        value: 60
+        value: 300
       - key: RATE_LIMIT_STATE
         value: 120
     disk:

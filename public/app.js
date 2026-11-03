@@ -25,7 +25,7 @@ const copyApiKey = document.getElementById('copyApiKey');
 
 // State
 let sessionToken = null;
-let refreshInterval = null;
+let eventSource = null;
 let detailChart = null;
 let currentHours = 1;
 let currentChartLogin = null;
@@ -102,9 +102,9 @@ async function logout() {
   }
 
   clearSessionToken();
-  if (refreshInterval) {
-    clearInterval(refreshInterval);
-    refreshInterval = null;
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
   }
   showLoginScreen();
 }
@@ -139,12 +139,40 @@ function showLoginScreen() {
 function showDashboardScreen() {
   loginScreen.classList.add('hidden');
   dashboardScreen.classList.remove('hidden');
+  // Load initial accounts
   loadAccounts();
 
-  if (refreshInterval) {
-    clearInterval(refreshInterval);
+  // Set up Server-Sent Events for real-time updates
+  if (eventSource) {
+    eventSource.close();
   }
-  refreshInterval = setInterval(loadAccounts, 3000);
+
+  const token = getSessionToken();
+  eventSource = new EventSource(`/api/dashboard/stream?token=${encodeURIComponent(token)}`);
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.accounts) {
+        updateAccountsUI(data.accounts);
+      }
+    } catch (err) {
+      console.error('Error parsing SSE data:', err);
+    }
+  };
+
+  eventSource.onerror = (err) => {
+    console.error('SSE connection error:', err);
+    eventSource.close();
+
+    // Reconnect after 5 seconds
+    setTimeout(() => {
+      if (sessionToken) {
+        const token = getSessionToken();
+        eventSource = new EventSource(`/api/dashboard/stream?token=${encodeURIComponent(token)}`);
+      }
+    }, 5000);
+  };
 }
 
 function createAccountCard(account) {
@@ -243,25 +271,28 @@ async function handleDeleteAccount(login, label) {
   }
 }
 
+function updateAccountsUI(accounts) {
+  accountsGrid.innerHTML = '';
+
+  if (accounts.length === 0) {
+    accountsGrid.innerHTML = `
+      <div class="empty-state">
+        <h3>No Accounts Added</h3>
+        <p>Click "+ Add Account" to start monitoring your MT5 accounts</p>
+      </div>
+    `;
+    return;
+  }
+
+  accounts.forEach(account => {
+    accountsGrid.appendChild(createAccountCard(account));
+  });
+}
+
 async function loadAccounts() {
   try {
     const { accounts } = await fetchAccounts();
-
-    accountsGrid.innerHTML = '';
-
-    if (accounts.length === 0) {
-      accountsGrid.innerHTML = `
-        <div class="empty-state">
-          <h3>No Accounts Added</h3>
-          <p>Click "+ Add Account" to start monitoring your MT5 accounts</p>
-        </div>
-      `;
-      return;
-    }
-
-    accounts.forEach(account => {
-      accountsGrid.appendChild(createAccountCard(account));
-    });
+    updateAccountsUI(accounts);
   } catch (err) {
     console.error('Error loading accounts:', err);
     if (err.message.includes('Invalid or expired session')) {
