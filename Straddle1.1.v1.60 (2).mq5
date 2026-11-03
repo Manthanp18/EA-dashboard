@@ -5667,6 +5667,7 @@ void HttpPushDashboardData()
    // Calculate metrics
    long login = AccountInfoInteger(ACCOUNT_LOGIN);
    string server = AccountInfoString(ACCOUNT_SERVER);
+   string accountName = AccountInfoString(ACCOUNT_NAME);
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    string currency = AccountInfoString(ACCOUNT_CURRENCY);
@@ -5694,9 +5695,10 @@ void HttpPushDashboardData()
 
    // Build JSON payload with EA metrics
    string json = StringFormat(
-      "{\"login\":%I64d,\"server\":\"%s\",\"balance\":%.2f,\"equity\":%.2f,\"cycle_net\":%.2f,\"realized_bank\":%.2f,\"floating_pnl\":%.2f,\"currency\":\"%s\",\"ts\":%d}",
+      "{\"login\":%I64d,\"server\":\"%s\",\"account_name\":\"%s\",\"balance\":%.2f,\"equity\":%.2f,\"cycle_net\":%.2f,\"realized_bank\":%.2f,\"floating_pnl\":%.2f,\"currency\":\"%s\",\"ts\":%d}",
       login,
       server,
+      accountName,
       balance,
       equity,
       cycleNet,

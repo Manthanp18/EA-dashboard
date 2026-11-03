@@ -119,6 +119,12 @@ function addAccount(login, apiKey, label) {
   return result;
 }
 
+// Update account label (called when EA sends account_name)
+function updateAccountLabel(login, newLabel) {
+  const stmt = db.prepare('UPDATE accounts SET label = ? WHERE login = ?');
+  return stmt.run(newLabel, login);
+}
+
 // Verify account API key
 function verifyAccount(login, apiKey) {
   const stmt = db.prepare('SELECT api_key_hash FROM accounts WHERE login = ?');
@@ -281,6 +287,7 @@ module.exports = {
   db,
   hashApiKey,
   addAccount,
+  updateAccountLabel,
   verifyAccount,
   addSnapshot,
   getLatestSnapshot,

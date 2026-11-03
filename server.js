@@ -11,6 +11,7 @@ const {
   getAllAccounts,
   getAccountInfo,
   addAccount,
+  updateAccountLabel,
   deleteAccount,
   createSession,
   verifySession,
@@ -116,7 +117,7 @@ app.post('/api/push', pushLimiter, (req, res) => {
       return res.status(401).json({ error: 'Missing X-API-Key header' });
     }
 
-    const { login, server, balance, equity, cycle_net, realized_bank, floating_pnl, currency, ts } = req.body;
+    const { login, server, account_name, balance, equity, cycle_net, realized_bank, floating_pnl, currency, ts } = req.body;
 
     if (!login || typeof login !== 'number' || login <= 0) {
       return res.status(400).json({ error: 'Invalid login' });
@@ -124,6 +125,15 @@ app.post('/api/push', pushLimiter, (req, res) => {
 
     if (!verifyAccount(login, apiKey)) {
       return res.status(401).json({ error: 'Invalid API key' });
+    }
+
+    // Auto-update account label if account_name is provided by EA
+    if (account_name && typeof account_name === 'string' && account_name.trim().length > 0) {
+      try {
+        updateAccountLabel(login, account_name.trim());
+      } catch (err) {
+        console.error(`Error updating account label for ${login}:`, err.message);
+      }
     }
 
     try {
