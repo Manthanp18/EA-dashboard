@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MT5 Dashboard - Multi-Account Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <h2>MT5 Dashboard Login</h2>
+      <p class="subtitle">Enter dashboard password to access all accounts</p>
+      <div id="loginError" class="error-message hidden"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="passwordInput">Dashboard Password</label>
+          <input
+            type="password"
+            id="passwordInput"
+            class="form-input"
+            placeholder="Enter password"
+            required
+            autofocus
+          >
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard Screen -->
+  <div id="dashboardScreen" class="hidden">
+    <div class="container">
+      <!-- Header -->
+      <header class="dashboard-header">
+        <div>
+          <h1>MT5 Multi-Account Dashboard</h1>
+          <p class="header-subtitle">Real-time monitoring for all MT5 accounts</p>
+        </div>
+        <div class="header-actions">
+          <button id="addAccountBtn" class="btn btn-success">+ Add Account</button>
+          <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
+          <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+        </div>
+      </header>
+
+      <!-- Accounts Grid -->
+      <div id="accountsGrid" class="accounts-grid">
+        <div class="loading">Loading accounts...</div>
+      </div>
+
+      <!-- Chart Modal -->
+      <div id="chartModal" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="modalTitle">Account Details</h3>
+            <button id="closeModal" class="btn-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="range-selector">
+              <button class="range-btn active" data-hours="1">1H</button>
+              <button class="range-btn" data-hours="24">24H</button>
+              <button class="range-btn" data-hours="168">7D</button>
+            </div>
+            <div class="chart-container">
+              <canvas id="detailChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Account Modal -->
+      <div id="addAccountModal" class="modal hidden">
+        <div class="modal-content modal-sm">
+          <div class="modal-header">
+            <h3>Add New Account</h3>
+            <button id="closeAddModal" class="btn-close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div id="addAccountError" class="error-message hidden"></div>
+            <div id="addAccountSuccess" class="success-message hidden"></div>
+            <form id="addAccountForm">
+              <div class="form-group">
+                <label class="form-label" for="newAccountLogin">MT5 Account Number</label>
+                <input
+                  type="number"
+                  id="newAccountLogin"
+                  class="form-input"
+                  placeholder="12345678"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="newAccountLabel">Label</label>
+                <input
+                  type="text"
+                  id="newAccountLabel"
+                  class="form-input"
+                  placeholder="My Live Account"
+                  required
+                >
+              </div>
+              <button type="submit" class="btn btn-primary btn-block">Add Account</button>
+            </form>
+            <div id="apiKeyDisplay" class="api-key-display hidden">
+              <h4>API Key Generated</h4>
+              <p class="warning">Save this API key now! It will not be shown again.</p>
+              <div class="api-key-box">
+                <code id="generatedApiKey"></code>
+                <button id="copyApiKey" class="btn btn-sm btn-secondary">Copy</button>
+              </div>
+              <div class="instructions">
+                <p><strong>To use in your MT5 EA:</strong></p>
+                <ul>
+                  <li>Set <code>InpApiKey</code> to the API key above</li>
+                  <li>Make sure the URL is whitelisted in MT5</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

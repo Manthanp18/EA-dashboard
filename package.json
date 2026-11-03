@@ -1,0 +1,20 @@
+{
+  "name": "mt5-dashboard",
+  "version": "1.0.0",
+  "description": "Live dashboard for MT5 Expert Advisor with real-time metrics",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "add-account": "node add-account.js"
+  },
+  "keywords": ["mt5", "metatrader5", "dashboard", "trading"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "better-sqlite3": "^9.2.2",
+    "dotenv": "^16.3.1"
+  }
+}

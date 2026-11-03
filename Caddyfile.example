@@ -1,0 +1,51 @@
+# Caddyfile for MT5 Dashboard
+# Replace yourdomain.com with your actual domain
+
+yourdomain.com {
+    # Automatic HTTPS with Let's Encrypt
+
+    # Reverse proxy to Node.js backend
+    reverse_proxy localhost:8000
+
+    # Optional: Add security headers
+    header {
+        # Enable HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        # XSS Protection
+        X-XSS-Protection "1; mode=block"
+    }
+
+    # Optional: Enable compression
+    encode gzip
+
+    # Access logging
+    log {
+        output file /var/log/caddy/mt5-dashboard-access.log
+        format json
+    }
+}
+
+# Alternative configuration for subdomain
+# Example: dashboard.yourdomain.com
+
+# dashboard.yourdomain.com {
+#     reverse_proxy localhost:8000
+#
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#         X-Frame-Options "SAMEORIGIN"
+#         X-Content-Type-Options "nosniff"
+#         X-XSS-Protection "1; mode=block"
+#     }
+#
+#     encode gzip
+#
+#     log {
+#         output file /var/log/caddy/mt5-dashboard-access.log
+#         format json
+#     }
+# }
