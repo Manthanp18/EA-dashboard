@@ -22,6 +22,9 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'changeme123';
 
+// Trust proxy for Render (fixes rate limiter behind reverse proxy)
+app.set('trust proxy', 1);
+
 // SSE: Track active dashboard connections
 const sseClients = new Set();
 

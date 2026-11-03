@@ -13,10 +13,19 @@ console.log('DB directory:', dbDir);
 
 // Ensure data directory exists
 if (!fs.existsSync(dbDir)) {
-  console.log('Creating DB directory:', dbDir);
+  console.log('⚠️  DB directory does NOT exist, creating:', dbDir);
   fs.mkdirSync(dbDir, { recursive: true });
+  console.log('⚠️  WARNING: Fresh directory created - persistent disk may not be mounted!');
 } else {
-  console.log('DB directory already exists');
+  console.log('✅ DB directory already exists');
+
+  // Check if database file exists
+  if (fs.existsSync(dbPath)) {
+    const stats = fs.statSync(dbPath);
+    console.log(`✅ Database file exists (${(stats.size / 1024).toFixed(2)} KB)`);
+  } else {
+    console.log('⚠️  Database file does NOT exist - will be created');
+  }
 }
 
 const db = new Database(dbPath);
