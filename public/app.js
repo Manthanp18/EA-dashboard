@@ -197,16 +197,23 @@ function createAccountCard(account) {
     </div>
     <div class="metrics-row">
       <div class="metric">
-        <div class="metric-label">Running PnL</div>
-        <div class="metric-value ${getValueClass(account.running_pnl)}">
-          ${formatNumber(account.running_pnl)}
+        <div class="metric-label">Cycle Net</div>
+        <div class="metric-value ${getValueClass(account.cycle_net)}">
+          ${formatNumber(account.cycle_net)}
           <span class="metric-currency">${escapeHtml(account.currency)}</span>
         </div>
       </div>
       <div class="metric">
-        <div class="metric-label">Equity</div>
-        <div class="metric-value neutral">
-          ${formatNumber(account.equity)}
+        <div class="metric-label">Realized Bank</div>
+        <div class="metric-value ${getValueClass(account.realized_bank)}">
+          ${formatNumber(account.realized_bank)}
+          <span class="metric-currency">${escapeHtml(account.currency)}</span>
+        </div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Current Floating</div>
+        <div class="metric-value ${getValueClass(account.floating_pnl)}">
+          ${formatNumber(account.floating_pnl)}
           <span class="metric-currency">${escapeHtml(account.currency)}</span>
         </div>
       </div>
@@ -214,13 +221,6 @@ function createAccountCard(account) {
         <div class="metric-label">Balance</div>
         <div class="metric-value neutral">
           ${formatNumber(account.balance)}
-          <span class="metric-currency">${escapeHtml(account.currency)}</span>
-        </div>
-      </div>
-      <div class="metric">
-        <div class="metric-label">Net Bank</div>
-        <div class="metric-value ${getValueClass(account.net_bank)}">
-          ${formatNumber(account.net_bank)}
           <span class="metric-currency">${escapeHtml(account.currency)}</span>
         </div>
       </div>

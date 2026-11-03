@@ -37,8 +37,9 @@ function broadcastAccountUpdate(login) {
       label: account.label,
       balance: account.balance || 0,
       equity: account.equity || 0,
-      running_pnl: account.running_pnl || 0,
-      net_bank: account.net_bank || 0,
+      cycle_net: account.cycle_net || 0,
+      realized_bank: account.realized_bank || 0,
+      floating_pnl: account.floating_pnl || 0,
       currency: account.currency || 'USD',
       server: account.server || null,
       is_online: account.received_at ? (now - account.received_at) < 30 : false,
@@ -115,7 +116,7 @@ app.post('/api/push', pushLimiter, (req, res) => {
       return res.status(401).json({ error: 'Missing X-API-Key header' });
     }
 
-    const { login, server, balance, equity, running_pnl, net_bank, currency, ts } = req.body;
+    const { login, server, balance, equity, cycle_net, realized_bank, floating_pnl, currency, ts } = req.body;
 
     if (!login || typeof login !== 'number' || login <= 0) {
       return res.status(400).json({ error: 'Invalid login' });
@@ -128,8 +129,9 @@ app.post('/api/push', pushLimiter, (req, res) => {
     try {
       validateNumber(balance, 'balance', false);
       validateNumber(equity, 'equity', false);
-      validateNumber(running_pnl, 'running_pnl');
-      validateNumber(net_bank, 'net_bank');
+      validateNumber(cycle_net, 'cycle_net');
+      validateNumber(realized_bank, 'realized_bank');
+      validateNumber(floating_pnl, 'floating_pnl');
       if (ts !== undefined) {
         validateNumber(ts, 'ts', false);
       }
@@ -140,8 +142,9 @@ app.post('/api/push', pushLimiter, (req, res) => {
     const result = addSnapshot(login, {
       balance,
       equity,
-      running_pnl,
-      net_bank,
+      cycle_net,
+      realized_bank,
+      floating_pnl,
       currency: currency || 'USD',
       server: server || null,
       ts: ts || null
@@ -220,8 +223,9 @@ app.get('/api/dashboard/stream', requireAuth, (req, res) => {
       label: account.label,
       balance: account.balance || 0,
       equity: account.equity || 0,
-      running_pnl: account.running_pnl || 0,
-      net_bank: account.net_bank || 0,
+      cycle_net: account.cycle_net || 0,
+      realized_bank: account.realized_bank || 0,
+      floating_pnl: account.floating_pnl || 0,
       currency: account.currency || 'USD',
       server: account.server || null,
       is_online: account.received_at ? (now - account.received_at) < 30 : false,
@@ -256,8 +260,9 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, (req, res) => 
       label: account.label,
       balance: account.balance || 0,
       equity: account.equity || 0,
-      running_pnl: account.running_pnl || 0,
-      net_bank: account.net_bank || 0,
+      cycle_net: account.cycle_net || 0,
+      realized_bank: account.realized_bank || 0,
+      floating_pnl: account.floating_pnl || 0,
       currency: account.currency || 'USD',
       server: account.server || null,
       is_online: account.received_at ? (now - account.received_at) < 30 : false,

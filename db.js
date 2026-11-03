@@ -39,8 +39,9 @@ db.exec(`
     login INTEGER NOT NULL,
     balance REAL NOT NULL,
     equity REAL NOT NULL,
-    running_pnl REAL NOT NULL,
-    net_bank REAL NOT NULL,
+    cycle_net REAL NOT NULL,
+    realized_bank REAL NOT NULL,
+    floating_pnl REAL NOT NULL,
     currency TEXT NOT NULL DEFAULT 'USD',
     server TEXT,
     ea_timestamp INTEGER,
@@ -114,16 +115,17 @@ function addSnapshot(login, data) {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO snapshots (login, balance, equity, running_pnl, net_bank, currency, server, ea_timestamp, received_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO snapshots (login, balance, equity, cycle_net, realized_bank, floating_pnl, currency, server, ea_timestamp, received_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   return stmt.run(
     login,
     data.balance,
     data.equity,
-    data.running_pnl,
-    data.net_bank,
+    data.cycle_net,
+    data.realized_bank,
+    data.floating_pnl,
     data.currency || 'USD',
     data.server || null,
     data.ts || null,
@@ -162,8 +164,9 @@ function getAllAccounts() {
       a.created_at,
       s.balance,
       s.equity,
-      s.running_pnl,
-      s.net_bank,
+      s.cycle_net,
+      s.realized_bank,
+      s.floating_pnl,
       s.currency,
       s.server,
       s.received_at

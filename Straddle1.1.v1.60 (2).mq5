@@ -5687,18 +5687,21 @@ void HttpPushDashboardData()
       }
    }
 
-   // Calculate net bank (realized + floating)
-   double netBank = CycleRealized() + FloatingPnL();
+   // Calculate EA-specific metrics
+   double cycleRealized = CycleRealized();
+   double floatingPnl = FloatingPnL();
+   double cycleNet = cycleRealized + floatingPnl;
 
-   // Build JSON payload
+   // Build JSON payload with EA metrics
    string json = StringFormat(
-      "{\"login\":%I64d,\"server\":\"%s\",\"balance\":%.2f,\"equity\":%.2f,\"running_pnl\":%.2f,\"net_bank\":%.2f,\"currency\":\"%s\",\"ts\":%d}",
+      "{\"login\":%I64d,\"server\":\"%s\",\"balance\":%.2f,\"equity\":%.2f,\"cycle_net\":%.2f,\"realized_bank\":%.2f,\"floating_pnl\":%.2f,\"currency\":\"%s\",\"ts\":%d}",
       login,
       server,
       balance,
       equity,
-      runningPnl,
-      netBank,
+      cycleNet,
+      cycleRealized,
+      floatingPnl,
       currency,
       (int)now
    );
