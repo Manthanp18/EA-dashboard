@@ -53,51 +53,22 @@ console.log('===============================');
 async function initializeSchema() {
   try {
     if (USE_POSTGRES) {
+      // Create tables with base schema
       await pool.query(`
         CREATE TABLE IF NOT EXISTS accounts (
           login BIGINT PRIMARY KEY,
           label TEXT NOT NULL,
-          created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
-          last_seen_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+          created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
         );
 
         CREATE TABLE IF NOT EXISTS snapshots (
           id SERIAL PRIMARY KEY,
           login BIGINT NOT NULL,
-
-          -- Snapshot metadata
-          schema_version INTEGER NOT NULL DEFAULT 1,
-          snapshot_id TEXT,
-          sampled_at_utc TEXT,
-          source_mode TEXT,
-
-          -- Account data
-          account_name TEXT,
-          server TEXT,
-          currency TEXT NOT NULL DEFAULT 'USD',
           balance REAL NOT NULL,
           equity REAL NOT NULL,
-
-          -- EA data
-          ea_name TEXT,
-          ea_version TEXT,
-          ea_instance_id TEXT,
-          ea_symbol TEXT,
-          ea_magic TEXT,
-          ea_status TEXT,
-
-          -- Cycle data
-          cycle_id TEXT,
-          cycle_active BOOLEAN,
           cycle_net REAL NOT NULL,
           cycle_realized_bank REAL NOT NULL,
           cycle_floating REAL NOT NULL,
-          cycle_active_target REAL,
-          cycle_profit_basis TEXT,
-          cycle_open_positions INTEGER,
-          cycle_pending_orders INTEGER,
-          cycle_accounting_confirmed BOOLEAN,
-
           received_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
           FOREIGN KEY (login) REFERENCES accounts(login)
         );
@@ -107,7 +78,84 @@ async function initializeSchema() {
           created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
           expires_at BIGINT NOT NULL
         );
+      `);
 
+      // Migrate existing schema to add new columns (safe - won't fail if columns exist)
+      await pool.query(`
+        -- Add last_seen_at to accounts if missing
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='last_seen_at') THEN
+            ALTER TABLE accounts ADD COLUMN last_seen_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT;
+          END IF;
+        END $$;
+
+        -- Add new snapshot columns if missing
+        DO $$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='schema_version') THEN
+            ALTER TABLE snapshots ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='snapshot_id') THEN
+            ALTER TABLE snapshots ADD COLUMN snapshot_id TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='sampled_at_utc') THEN
+            ALTER TABLE snapshots ADD COLUMN sampled_at_utc TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='source_mode') THEN
+            ALTER TABLE snapshots ADD COLUMN source_mode TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='account_name') THEN
+            ALTER TABLE snapshots ADD COLUMN account_name TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='server') THEN
+            ALTER TABLE snapshots ADD COLUMN server TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='currency') THEN
+            ALTER TABLE snapshots ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD';
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_name') THEN
+            ALTER TABLE snapshots ADD COLUMN ea_name TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_version') THEN
+            ALTER TABLE snapshots ADD COLUMN ea_version TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_instance_id') THEN
+            ALTER TABLE snapshots ADD COLUMN ea_instance_id TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_symbol') THEN
+            ALTER TABLE snapshots ADD COLUMN ea_symbol TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_magic') THEN
+            ALTER TABLE snapshots ADD COLUMN ea_magic TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_status') THEN
+            ALTER TABLE snapshots ADD COLUMN ea_status TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_id') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_id TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_active') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_active BOOLEAN;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_active_target') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_active_target REAL;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_profit_basis') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_profit_basis TEXT;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_open_positions') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_open_positions INTEGER;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_pending_orders') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_pending_orders INTEGER;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_accounting_confirmed') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_accounting_confirmed BOOLEAN;
+          END IF;
+        END $$;
+
+        -- Create indexes
         CREATE INDEX IF NOT EXISTS idx_snapshots_login ON snapshots(login);
         CREATE INDEX IF NOT EXISTS idx_snapshots_received_at ON snapshots(received_at);
         CREATE INDEX IF NOT EXISTS idx_snapshots_login_received ON snapshots(login, received_at DESC);
