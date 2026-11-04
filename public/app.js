@@ -29,6 +29,9 @@ let eventSource = null;
 let detailChart = null;
 let currentHours = 1;
 let currentChartLogin = null;
+let miniCharts = new Map(); // Store mini chart instances
+let currentPage = 1;
+const accountsPerPage = 8;
 
 // Utility Functions
 function formatNumber(num, decimals = 2) {
@@ -181,7 +184,7 @@ function showDashboardScreen() {
   };
 }
 
-function createAccountCard(account) {
+async function createAccountCard(account) {
   const card = document.createElement('div');
   card.className = 'account-card';
   card.dataset.login = account.login;
@@ -189,6 +192,8 @@ function createAccountCard(account) {
   const isOnline = account.is_online;
   const statusClass = isOnline ? 'online' : 'offline';
   const statusText = isOnline ? 'EA Online' : 'EA Offline';
+
+  const canvasId = `miniChart_${account.login}`;
 
   card.innerHTML = `
     <div class="account-header">
@@ -231,6 +236,9 @@ function createAccountCard(account) {
         </div>
       </div>
     </div>
+    <div class="mini-chart-container">
+      <canvas id="${canvasId}"></canvas>
+    </div>
   `;
 
   // Handle delete button click
@@ -247,6 +255,11 @@ function createAccountCard(account) {
     if (e.target.closest('.delete-account-btn')) return;
     showChartModal(account.login, account.label);
   });
+
+  // Create mini chart after card is added to DOM
+  setTimeout(async () => {
+    await createMiniChart(account.login, canvasId);
+  }, 100);
 
   return card;
 }
@@ -277,7 +290,77 @@ async function handleDeleteAccount(login, label) {
   }
 }
 
-function updateAccountsUI(accounts) {
+// Create mini chart for account card
+async function createMiniChart(login, canvasId) {
+  try {
+    // Destroy existing chart if any
+    if (miniCharts.has(login)) {
+      miniCharts.get(login).destroy();
+    }
+
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    // Fetch last 1 hour of data for mini chart
+    const data = await fetchHistory(login, 1);
+
+    if (!data.snapshots || data.snapshots.length === 0) {
+      return; // No data yet
+    }
+
+    const timestamps = data.snapshots.map(s => new Date(s.received_at * 1000));
+    const equity = data.snapshots.map(s => s.equity);
+
+    const ctx = canvas.getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: timestamps,
+        datasets: [{
+          data: equity,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: false }
+        },
+        scales: {
+          x: {
+            display: false
+          },
+          y: {
+            display: false
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        }
+      }
+    });
+
+    miniCharts.set(login, chart);
+  } catch (err) {
+    console.error(`Error creating mini chart for ${login}:`, err);
+  }
+}
+
+async function updateAccountsUI(accounts) {
+  // Clear old mini charts
+  miniCharts.forEach(chart => chart.destroy());
+  miniCharts.clear();
+
   accountsGrid.innerHTML = '';
 
   if (accounts.length === 0) {
@@ -287,11 +370,82 @@ function updateAccountsUI(accounts) {
         <p>Click "+ Add Account" to start monitoring your MT5 accounts</p>
       </div>
     `;
+    updatePagination(0);
     return;
   }
 
-  accounts.forEach(account => {
-    accountsGrid.appendChild(createAccountCard(account));
+  // Pagination logic
+  const totalPages = Math.ceil(accounts.length / accountsPerPage);
+  const startIndex = (currentPage - 1) * accountsPerPage;
+  const endIndex = startIndex + accountsPerPage;
+  const paginatedAccounts = accounts.slice(startIndex, endIndex);
+
+  // Create cards for paginated accounts
+  for (const account of paginatedAccounts) {
+    const card = await createAccountCard(account);
+    accountsGrid.appendChild(card);
+  }
+
+  updatePagination(accounts.length);
+}
+
+function updatePagination(totalAccounts) {
+  let paginationEl = document.getElementById('pagination');
+
+  if (!paginationEl) {
+    paginationEl = document.createElement('div');
+    paginationEl.id = 'pagination';
+    paginationEl.className = 'pagination';
+    accountsGrid.parentNode.appendChild(paginationEl);
+  }
+
+  if (totalAccounts === 0) {
+    paginationEl.classList.add('hidden');
+    return;
+  }
+
+  paginationEl.classList.remove('hidden');
+
+  const totalPages = Math.ceil(totalAccounts / accountsPerPage);
+  const startIndex = (currentPage - 1) * accountsPerPage + 1;
+  const endIndex = Math.min(startIndex + accountsPerPage - 1, totalAccounts);
+
+  paginationEl.innerHTML = `
+    <div class="pagination-info">
+      Showing ${startIndex} - ${endIndex} of ${totalAccounts} account${totalAccounts !== 1 ? 's' : ''}
+    </div>
+    <div class="pagination-controls">
+      <button class="pagination-btn" id="prevPage" ${currentPage === 1 ? 'disabled' : ''}>‹</button>
+      ${Array.from({ length: totalPages }, (_, i) => i + 1)
+        .map(page => `
+          <button class="pagination-btn ${page === currentPage ? 'active' : ''}" data-page="${page}">
+            ${page}
+          </button>
+        `).join('')}
+      <button class="pagination-btn" id="nextPage" ${currentPage === totalPages ? 'disabled' : ''}>›</button>
+    </div>
+  `;
+
+  // Add event listeners
+  document.getElementById('prevPage')?.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadAccounts();
+    }
+  });
+
+  document.getElementById('nextPage')?.addEventListener('click', () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      loadAccounts();
+    }
+  });
+
+  document.querySelectorAll('.pagination-btn[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentPage = parseInt(btn.dataset.page);
+      loadAccounts();
+    });
   });
 }
 
@@ -346,7 +500,8 @@ async function updateChart() {
 
     const timestamps = data.snapshots.map(s => new Date(s.received_at * 1000));
     const equity = data.snapshots.map(s => s.equity);
-    const netBank = data.snapshots.map(s => s.net_bank);
+    const cycleNet = data.snapshots.map(s => s.cycle_net);
+    const realizedBank = data.snapshots.map(s => s.realized_bank);
 
     if (detailChart) {
       detailChart.destroy();
@@ -361,18 +516,27 @@ async function updateChart() {
           {
             label: 'Equity',
             data: equity,
-            borderColor: '#60a5fa',
-            backgroundColor: 'rgba(96, 165, 250, 0.1)',
-            borderWidth: 2,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
             tension: 0.4,
             fill: true
           },
           {
-            label: 'Net Bank',
-            data: netBank,
+            label: 'Cycle Net',
+            data: cycleNet,
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            borderWidth: 2,
+            borderWidth: 3,
+            tension: 0.4,
+            fill: true
+          },
+          {
+            label: 'Realized Bank',
+            data: realizedBank,
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            borderWidth: 3,
             tension: 0.4,
             fill: true
           }
@@ -384,18 +548,24 @@ async function updateChart() {
         plugins: {
           legend: {
             labels: {
-              color: '#e0e0e0',
-              font: { size: 12 }
+              color: '#cbd5e1',
+              font: { size: 13, weight: '600' },
+              padding: 16,
+              usePointStyle: true
             }
           },
           tooltip: {
             mode: 'index',
             intersect: false,
-            backgroundColor: '#1a1a2e',
-            titleColor: '#fff',
-            bodyColor: '#e0e0e0',
-            borderColor: '#2d2d44',
-            borderWidth: 1
+            backgroundColor: '#141824',
+            titleColor: '#f1f5f9',
+            bodyColor: '#cbd5e1',
+            borderColor: '#334155',
+            borderWidth: 2,
+            padding: 12,
+            titleFont: { size: 13, weight: 'bold' },
+            bodyFont: { size: 12 },
+            cornerRadius: 8
           }
         },
         scales: {
@@ -410,18 +580,22 @@ async function updateChart() {
               }
             },
             grid: {
-              color: '#2d2d44'
+              color: '#1e293b',
+              drawBorder: false
             },
             ticks: {
-              color: '#9ca3af'
+              color: '#94a3b8',
+              font: { size: 11 }
             }
           },
           y: {
             grid: {
-              color: '#2d2d44'
+              color: '#1e293b',
+              drawBorder: false
             },
             ticks: {
-              color: '#9ca3af',
+              color: '#94a3b8',
+              font: { size: 11 },
               callback: function(value) {
                 return formatNumber(value, 0);
               }
