@@ -5679,7 +5679,7 @@ void HttpPushDashboardData()
    string eaInstanceID = InpEAInstanceID;
    string eaSymbol = _Symbol;
    string eaMagic = IntegerToString(InpMagicFilter > 0 ? InpMagicFilter : 990011);
-   string eaStatus = IsTesting() ? "TESTING" : (IsOptimization() ? "OPTIMIZING" : "RUNNING");
+   string eaStatus = MQLInfoInteger(MQL_TESTER) ? "TESTING" : (MQLInfoInteger(MQL_OPTIMIZATION) ? "OPTIMIZING" : "RUNNING");
 
    //--- SOURCE MODE ---
    string sourceMode = AccountInfoInteger(ACCOUNT_TRADE_MODE) == ACCOUNT_TRADE_MODE_DEMO ? "demo" : "live";

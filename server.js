@@ -399,7 +399,6 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`MT5 Dashboard server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Database: PostgreSQL`);
   console.log(`\nDashboard password: ${DASHBOARD_PASSWORD}`);
   console.log(`\nIMPORTANT: Change DASHBOARD_PASSWORD in .env before deploying!`);
 });
