@@ -299,18 +299,18 @@ async function upsertAccount(login, label) {
   }
 }
 
-// Add a snapshot (with rate limiting - max once per 15 seconds per account)
+// Add a snapshot (with rate limiting - max once per 5 seconds per account)
 async function addSnapshot(login, data) {
   const now = Math.floor(Date.now() / 1000);
 
   if (USE_POSTGRES) {
-    // Check if we have a recent snapshot (within last 15 seconds)
+    // Check if we have a recent snapshot (within last 5 seconds)
     const lastSnapshot = await pool.query(
       'SELECT received_at FROM snapshots WHERE login = $1 ORDER BY received_at DESC LIMIT 1',
       [login]
     );
 
-    if (lastSnapshot.rows.length > 0 && (now - lastSnapshot.rows[0].received_at) < 15) {
+    if (lastSnapshot.rows.length > 0 && (now - lastSnapshot.rows[0].received_at) < 5) {
       return null; // Skip this snapshot
     }
 
@@ -364,7 +364,7 @@ async function addSnapshot(login, data) {
       'SELECT received_at FROM snapshots WHERE login = ? ORDER BY received_at DESC LIMIT 1'
     ).get(login);
 
-    if (lastSnapshot && (now - lastSnapshot.received_at) < 15) {
+    if (lastSnapshot && (now - lastSnapshot.received_at) < 5) {
       return null; // Skip this snapshot
     }
 
