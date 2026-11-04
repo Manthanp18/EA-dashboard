@@ -90,6 +90,20 @@ async function initializeSchema() {
           END IF;
         END $$;
 
+        -- Remove old snapshot column names (renamed to cycle_* prefix)
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='realized_bank') THEN
+            ALTER TABLE snapshots DROP COLUMN realized_bank;
+          END IF;
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='floating_pnl') THEN
+            ALTER TABLE snapshots DROP COLUMN floating_pnl;
+          END IF;
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='net_pnl') THEN
+            ALTER TABLE snapshots DROP COLUMN net_pnl;
+          END IF;
+        END $$;
+
         -- Add last_seen_at to accounts if missing
         DO $$
         BEGIN
