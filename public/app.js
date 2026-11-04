@@ -221,13 +221,6 @@ async function createAccountCard(account) {
         </div>
         ${eaInfo ? `<div class="ea-info">${eaInfo}</div>` : ''}
       </div>
-      <div class="account-actions">
-        <button class="delete-account-btn" data-login="${account.login}" title="Delete account">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4m2 0v9.333a1.333 1.333 0 0 1-1.334 1.334H4.667a1.333 1.333 0 0 1-1.334-1.334V4h9.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
     </div>
     <div class="metrics-row">
       <div class="metric">
@@ -259,8 +252,12 @@ async function createAccountCard(account) {
         </div>
       </div>
     </div>
-    <div class="mini-chart-container">
-      <canvas id="${canvasId}"></canvas>
+    <div class="card-footer">
+      <button class="delete-account-btn" data-login="${account.login}" title="Delete account">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+          <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4m2 0v9.333a1.333 1.333 0 0 1-1.334 1.334H4.667a1.333 1.333 0 0 1-1.334-1.334V4h9.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
   `;
 

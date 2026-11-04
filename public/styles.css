@@ -358,18 +358,20 @@ body {
   margin-top: 4px;
 }
 
-.account-actions {
+.card-footer {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  justify-content: center;
+  padding-top: 12px;
+  margin-top: 16px;
+  border-top: 1px solid #1e293b;
 }
 
 .delete-account-btn {
   background: transparent;
   color: #64748b;
   border: none;
-  border-radius: 6px;
-  padding: 8px;
+  border-radius: 8px;
+  padding: 10px;
   cursor: pointer;
   opacity: 0;
   transition: all 0.2s;
@@ -385,6 +387,7 @@ body {
 .delete-account-btn:hover {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+  transform: scale(1.05);
 }
 
 /* Status Indicator (Blinking Dot) */
