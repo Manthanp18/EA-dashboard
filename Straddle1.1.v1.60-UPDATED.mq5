@@ -5672,6 +5672,10 @@ void HttpPushDashboardData()
    string currency = AccountInfoString(ACCOUNT_CURRENCY);
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit
+
+   // Calculate today's PnL (equity - start_of_day_balance)
+   double todayPnl = equity - (gDayStartBalance > 0.0 ? gDayStartBalance : balance);
 
    //--- EA DATA ---
    string eaName = "Straddle";
@@ -5743,7 +5747,9 @@ void HttpPushDashboardData()
          "\"server\":\"%s\","
          "\"currency\":\"%s\","
          "\"balance\":%.2f,"
-         "\"equity\":%.2f"
+         "\"equity\":%.2f,"
+         "\"profit\":%.2f,"
+         "\"today_pnl\":%.2f"
       "},"
       "\"ea\":{"
          "\"name\":\"%s\","
@@ -5777,6 +5783,8 @@ void HttpPushDashboardData()
       currency,
       balance,
       equity,
+      profit,
+      todayPnl,
       // EA data
       eaName,
       eaVersion,

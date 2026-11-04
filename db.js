@@ -150,6 +150,12 @@ async function initializeSchema() {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='currency') THEN
             ALTER TABLE snapshots ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD';
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='profit') THEN
+            ALTER TABLE snapshots ADD COLUMN profit REAL;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='today_pnl') THEN
+            ALTER TABLE snapshots ADD COLUMN today_pnl REAL;
+          END IF;
 
           -- EA columns
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_name') THEN
@@ -225,6 +231,8 @@ async function initializeSchema() {
           currency TEXT NOT NULL DEFAULT 'USD',
           balance REAL NOT NULL,
           equity REAL NOT NULL,
+          profit REAL,
+          today_pnl REAL,
 
           ea_name TEXT,
           ea_version TEXT,
@@ -317,14 +325,14 @@ async function addSnapshot(login, data) {
     const result = await pool.query(
       `INSERT INTO snapshots (
         login, schema_version, snapshot_id, sampled_at_utc, source_mode,
-        account_name, server, currency, balance, equity,
+        account_name, server, currency, balance, equity, profit, today_pnl,
         ea_name, ea_version, ea_instance_id, ea_symbol, ea_magic, ea_status,
         cycle_id, cycle_active, cycle_net, cycle_realized_bank, cycle_floating,
         cycle_active_target, cycle_profit_basis, cycle_open_positions,
         cycle_pending_orders, cycle_accounting_confirmed, received_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
       ) RETURNING *`,
       [
         login,
@@ -337,6 +345,8 @@ async function addSnapshot(login, data) {
         data.account?.currency || 'USD',
         data.account?.balance || 0,
         data.account?.equity || 0,
+        data.account?.profit || null,
+        data.account?.today_pnl || null,
         data.ea?.name || null,
         data.ea?.version || null,
         data.ea?.instance_id || null,
@@ -371,13 +381,13 @@ async function addSnapshot(login, data) {
     const stmt = db.prepare(`
       INSERT INTO snapshots (
         login, schema_version, snapshot_id, sampled_at_utc, source_mode,
-        account_name, server, currency, balance, equity,
+        account_name, server, currency, balance, equity, profit, today_pnl,
         ea_name, ea_version, ea_instance_id, ea_symbol, ea_magic, ea_status,
         cycle_id, cycle_active, cycle_net, cycle_realized_bank, cycle_floating,
         cycle_active_target, cycle_profit_basis, cycle_open_positions,
         cycle_pending_orders, cycle_accounting_confirmed, received_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -392,6 +402,8 @@ async function addSnapshot(login, data) {
       data.account?.currency || 'USD',
       data.account?.balance || 0,
       data.account?.equity || 0,
+      data.account?.profit || null,
+      data.account?.today_pnl || null,
       data.ea?.name || null,
       data.ea?.version || null,
       data.ea?.instance_id || null,
@@ -483,7 +495,7 @@ async function getAllAccounts() {
         s.cycle_pending_orders,
         s.cycle_accounting_confirmed,
         s.received_at,
-        COALESCE(s.cycle_realized_bank - start_of_day.cycle_realized_bank, 0) as daily_realized
+        s.today_pnl
       FROM accounts a
       LEFT JOIN LATERAL (
         SELECT *
@@ -492,14 +504,6 @@ async function getAllAccounts() {
         ORDER BY received_at DESC
         LIMIT 1
       ) s ON true
-      LEFT JOIN LATERAL (
-        SELECT cycle_realized_bank
-        FROM snapshots
-        WHERE snapshots.login = a.login
-          AND received_at >= EXTRACT(EPOCH FROM DATE_TRUNC('day', NOW()))::BIGINT
-        ORDER BY received_at ASC
-        LIMIT 1
-      ) start_of_day ON true
       ORDER BY a.login ASC
     `);
 
@@ -513,8 +517,6 @@ async function getAllAccounts() {
     return accounts;
   } else {
     // SQLite version
-    const startOfDayTimestamp = Math.floor(new Date(new Date().toDateString()).getTime() / 1000);
-
     const accounts = db.prepare(`
       SELECT
         a.login,
@@ -543,7 +545,7 @@ async function getAllAccounts() {
         s.cycle_pending_orders,
         s.cycle_accounting_confirmed,
         s.received_at,
-        COALESCE(s.cycle_realized_bank - start_of_day.cycle_realized_bank, 0) as daily_realized
+        s.today_pnl
       FROM accounts a
       LEFT JOIN (
         SELECT *
@@ -556,15 +558,8 @@ async function getAllAccounts() {
           LIMIT 1
         )
       ) s ON a.login = s.login
-      LEFT JOIN (
-        SELECT login, cycle_realized_bank
-        FROM snapshots
-        WHERE login = a.login AND received_at >= ?
-        ORDER BY received_at ASC
-        LIMIT 1
-      ) start_of_day ON a.login = start_of_day.login
       ORDER BY a.login ASC
-    `).all(startOfDayTimestamp);
+    `).all();
 
     console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
     if (accounts.length > 0) {
