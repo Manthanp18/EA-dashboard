@@ -209,15 +209,24 @@ async function createAccountCard(account) {
   card.innerHTML = `
     <div class="account-header">
       <div class="account-info">
-        <h3>${escapeHtml(account.label)}</h3>
-        <div class="account-login">
-          ${account.login}${account.server ? ' • ' + escapeHtml(account.server) : ''}${symbol}${mode}
+        <div class="account-title-row">
+          <h3>${escapeHtml(account.label)}</h3>
+          <span class="status-indicator ${eaStatusClass}"></span>
         </div>
-        ${eaInfo ? `<div class="account-login" style="color: #64748b; font-size: 11px; margin-top: 2px;">${eaInfo}</div>` : ''}
+        <div class="account-meta">
+          <span class="account-number">${account.login}</span>
+          ${account.server ? `<span class="meta-divider">•</span><span class="meta-item">${escapeHtml(account.server)}</span>` : ''}
+          ${symbol ? `<span class="meta-divider">•</span><span class="meta-item">${escapeHtml(account.ea_symbol)}</span>` : ''}
+          ${mode ? `<span class="meta-divider">•</span><span class="meta-badge">${escapeHtml(account.source_mode).toUpperCase()}</span>` : ''}
+        </div>
+        ${eaInfo ? `<div class="ea-info">${eaInfo}</div>` : ''}
       </div>
       <div class="account-actions">
-        <button class="delete-account-btn" data-login="${account.login}">Delete</button>
-        <span class="status-badge ${eaStatusClass}">${eaStatusText}</span>
+        <button class="delete-account-btn" data-login="${account.login}" title="Delete account">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M2 4h12M5.333 4V2.667a1.333 1.333 0 0 1 1.334-1.334h2.666a1.333 1.333 0 0 1 1.334 1.334V4m2 0v9.333a1.333 1.333 0 0 1-1.334 1.334H4.667a1.333 1.333 0 0 1-1.334-1.334V4h9.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>
     <div class="metrics-row">
