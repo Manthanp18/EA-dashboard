@@ -4,14 +4,12 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const crypto = require('crypto');
 const {
-  verifyAccount,
+  upsertAccount,
   addSnapshot,
   getLatestSnapshot,
   getHistory,
   getAllAccounts,
   getAccountInfo,
-  addAccount,
-  updateAccountLabel,
   deleteAccount,
   createSession,
   verifySession,
@@ -46,6 +44,15 @@ async function broadcastAccountUpdate(login) {
       floating_pnl: account.floating_pnl || 0,
       currency: account.currency || 'USD',
       server: account.server || null,
+      account_name: account.account_name || null,
+      source_mode: account.source_mode || null,
+      ea_name: account.ea_name || null,
+      ea_version: account.ea_version || null,
+      ea_symbol: account.ea_symbol || null,
+      ea_magic: account.ea_magic || null,
+      ea_status: account.ea_status || null,
+      cycle_open_positions: account.cycle_open_positions || 0,
+      cycle_pending_orders: account.cycle_pending_orders || 0,
       is_online: account.received_at ? (now - account.received_at) < 30 : false,
       last_update: account.received_at || null
     }));
@@ -112,70 +119,58 @@ function validateNumber(value, name, allowNegative = true) {
   return value;
 }
 
-// POST /api/push - EA pushes data here (no session required, uses API key)
+// POST /api/push - EA pushes data here (no authentication required)
 app.post('/api/push', pushLimiter, async (req, res) => {
   try {
-    const apiKey = req.headers['x-api-key'];
+    const data = req.body;
 
-    if (!apiKey) {
-      return res.status(401).json({ error: 'Missing X-API-Key header' });
+    // Validate required fields
+    if (!data.account || !data.account.login) {
+      return res.status(400).json({ error: 'Missing account.login' });
     }
 
-    const { login, server, account_name, balance, equity, cycle_net, realized_bank, floating_pnl, currency, ts } = req.body;
-
-    if (!login || typeof login !== 'number' || login <= 0) {
-      return res.status(400).json({ error: 'Invalid login' });
+    const login = parseInt(data.account.login);
+    if (isNaN(login) || login <= 0) {
+      return res.status(400).json({ error: 'Invalid account.login' });
     }
 
-    const isValid = await verifyAccount(login, apiKey);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
-
-    // Auto-update account label if account_name is provided by EA
-    if (account_name && typeof account_name === 'string' && account_name.trim().length > 0) {
-      try {
-        await updateAccountLabel(login, account_name.trim());
-      } catch (err) {
-        console.error(`Error updating account label for ${login}:`, err.message);
-      }
-    }
-
+    // Validate numbers
     try {
-      validateNumber(balance, 'balance', false);
-      validateNumber(equity, 'equity', false);
-      validateNumber(cycle_net, 'cycle_net');
-      validateNumber(realized_bank, 'realized_bank');
-      validateNumber(floating_pnl, 'floating_pnl');
-      if (ts !== undefined) {
-        validateNumber(ts, 'ts', false);
-      }
+      if (data.account.balance !== undefined) validateNumber(data.account.balance, 'account.balance', false);
+      if (data.account.equity !== undefined) validateNumber(data.account.equity, 'account.equity', false);
+      if (data.cycle?.net !== undefined) validateNumber(data.cycle.net, 'cycle.net');
+      if (data.cycle?.realized_bank !== undefined) validateNumber(data.cycle.realized_bank, 'cycle.realized_bank');
+      if (data.cycle?.floating !== undefined) validateNumber(data.cycle.floating, 'cycle.floating');
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
 
-    const result = await addSnapshot(login, {
-      balance,
-      equity,
-      cycle_net,
-      realized_bank,
-      floating_pnl,
-      currency: currency || 'USD',
-      server: server || null,
-      ts: ts || null
-    });
+    // Auto-create or update account
+    const accountLabel = data.account.name || data.ea?.name || `Account ${login}`;
+    await upsertAccount(login, accountLabel);
+
+    // Save snapshot
+    const result = await addSnapshot(login, data);
 
     if (result === null) {
-      return res.status(202).json({ status: 'accepted', message: 'Snapshot received but rate-limited' });
+      return res.status(202).json({
+        status: 'accepted',
+        message: 'Snapshot received but rate-limited',
+        login: login
+      });
     }
 
     // Broadcast update to all connected dashboards via SSE
     await broadcastAccountUpdate(login);
 
-    res.status(200).json({ status: 'ok', snapshot_id: result.id });
+    res.status(200).json({
+      status: 'ok',
+      snapshot_id: result.id,
+      login: login
+    });
   } catch (err) {
     console.error('Error in /api/push:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
 
@@ -243,6 +238,15 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
       floating_pnl: account.floating_pnl || 0,
       currency: account.currency || 'USD',
       server: account.server || null,
+      account_name: account.account_name || null,
+      source_mode: account.source_mode || null,
+      ea_name: account.ea_name || null,
+      ea_version: account.ea_version || null,
+      ea_symbol: account.ea_symbol || null,
+      ea_magic: account.ea_magic || null,
+      ea_status: account.ea_status || null,
+      cycle_open_positions: account.cycle_open_positions || 0,
+      cycle_pending_orders: account.cycle_pending_orders || 0,
       is_online: account.received_at ? (now - account.received_at) < 30 : false,
       last_update: account.received_at || null
     }));
@@ -280,6 +284,15 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, re
       floating_pnl: account.floating_pnl || 0,
       currency: account.currency || 'USD',
       server: account.server || null,
+      account_name: account.account_name || null,
+      source_mode: account.source_mode || null,
+      ea_name: account.ea_name || null,
+      ea_version: account.ea_version || null,
+      ea_symbol: account.ea_symbol || null,
+      ea_magic: account.ea_magic || null,
+      ea_status: account.ea_status || null,
+      cycle_open_positions: account.cycle_open_positions || 0,
+      cycle_pending_orders: account.cycle_pending_orders || 0,
       is_online: account.received_at ? (now - account.received_at) < 30 : false,
       last_update: account.received_at || null
     }));
@@ -291,42 +304,10 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, re
   }
 });
 
-// POST /api/dashboard/accounts - Add new account to monitor
-app.post('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, res) => {
-  try {
-    const { login, label } = req.body;
-
-    if (!login || typeof login !== 'number' || login <= 0) {
-      return res.status(400).json({ error: 'Invalid login (must be positive integer)' });
-    }
-
-    if (!label || typeof label !== 'string' || label.trim().length === 0) {
-      return res.status(400).json({ error: 'Label required' });
-    }
-
-    // Generate API key
-    const apiKey = crypto.randomBytes(32).toString('hex');
-
-    try {
-      await addAccount(login, apiKey, label.trim());
-    } catch (err) {
-      if (err.code === '23505') { // PostgreSQL unique violation
-        return res.status(409).json({ error: 'Account already exists' });
-      }
-      throw err;
-    }
-
-    res.status(201).json({
-      login,
-      label: label.trim(),
-      api_key: apiKey,
-      message: 'Account created. Save the API key - it will not be shown again.'
-    });
-  } catch (err) {
-    console.error('Error in POST /api/dashboard/accounts:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// POST /api/dashboard/accounts - DISABLED (accounts are auto-created by EA)
+// app.post('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, res) => {
+//   res.status(501).json({ error: 'Manual account creation disabled. Accounts are auto-created when EA sends data.' });
+// });
 
 // DELETE /api/dashboard/accounts/:login - Remove account
 app.delete('/api/dashboard/accounts/:login', requireAuth, dashboardLimiter, async (req, res) => {

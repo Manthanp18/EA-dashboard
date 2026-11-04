@@ -195,15 +195,29 @@ async function createAccountCard(account) {
 
   const canvasId = `miniChart_${account.login}`;
 
+  // EA status badge
+  const eaStatusClass = account.ea_status === 'RUNNING' ? 'online' :
+                        account.ea_status === 'PAUSED' ? 'paused' : 'offline';
+  const eaStatusText = account.ea_status || statusText;
+
+  // Build EA info line
+  const eaInfo = account.ea_name ?
+    `${escapeHtml(account.ea_name)}${account.ea_version ? ' v' + escapeHtml(account.ea_version) : ''}` : null;
+  const symbol = account.ea_symbol ? ` • ${escapeHtml(account.ea_symbol)}` : '';
+  const mode = account.source_mode ? ` • ${escapeHtml(account.source_mode).toUpperCase()}` : '';
+
   card.innerHTML = `
     <div class="account-header">
       <div class="account-info">
         <h3>${escapeHtml(account.label)}</h3>
-        <div class="account-login">Account: ${account.login}${account.server ? ' • ' + escapeHtml(account.server) : ''}</div>
+        <div class="account-login">
+          ${account.login}${account.server ? ' • ' + escapeHtml(account.server) : ''}${symbol}${mode}
+        </div>
+        ${eaInfo ? `<div class="account-login" style="color: #64748b; font-size: 11px; margin-top: 2px;">${eaInfo}</div>` : ''}
       </div>
       <div class="account-actions">
         <button class="delete-account-btn" data-login="${account.login}">Delete</button>
-        <span class="status-badge ${statusClass}">${statusText}</span>
+        <span class="status-badge ${eaStatusClass}">${eaStatusText}</span>
       </div>
     </div>
     <div class="metrics-row">

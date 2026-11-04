@@ -33,22 +33,48 @@ async function initializeSchema() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS accounts (
         login BIGINT PRIMARY KEY,
-        api_key_hash TEXT NOT NULL,
         label TEXT NOT NULL,
-        created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
+        created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+        last_seen_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
       );
 
       CREATE TABLE IF NOT EXISTS snapshots (
         id SERIAL PRIMARY KEY,
         login BIGINT NOT NULL,
+
+        -- Snapshot metadata
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        snapshot_id TEXT,
+        sampled_at_utc TEXT,
+        source_mode TEXT,
+
+        -- Account data
+        account_name TEXT,
+        server TEXT,
+        currency TEXT NOT NULL DEFAULT 'USD',
         balance REAL NOT NULL,
         equity REAL NOT NULL,
+
+        -- EA data
+        ea_name TEXT,
+        ea_version TEXT,
+        ea_instance_id TEXT,
+        ea_symbol TEXT,
+        ea_magic TEXT,
+        ea_status TEXT,
+
+        -- Cycle data
+        cycle_id TEXT,
+        cycle_active BOOLEAN,
         cycle_net REAL NOT NULL,
-        realized_bank REAL NOT NULL,
-        floating_pnl REAL NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'USD',
-        server TEXT,
-        ea_timestamp BIGINT,
+        cycle_realized_bank REAL NOT NULL,
+        cycle_floating REAL NOT NULL,
+        cycle_active_target REAL,
+        cycle_profit_basis TEXT,
+        cycle_open_positions INTEGER,
+        cycle_pending_orders INTEGER,
+        cycle_accounting_confirmed BOOLEAN,
+
         received_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
         FOREIGN KEY (login) REFERENCES accounts(login)
       );
@@ -80,56 +106,18 @@ initializeSchema().catch(err => {
   process.exit(1);
 });
 
-// Hash API key using SHA-256
-function hashApiKey(apiKey) {
-  return crypto.createHash('sha256').update(apiKey).digest('hex');
-}
-
-// Timing-safe comparison for API keys
-function compareApiKey(inputKey, storedHash) {
-  const inputHash = hashApiKey(inputKey);
-  return crypto.timingSafeEqual(
-    Buffer.from(inputHash, 'hex'),
-    Buffer.from(storedHash, 'hex')
-  );
-}
-
-// Add a new account
-async function addAccount(login, apiKey, label) {
-  const apiKeyHash = hashApiKey(apiKey);
+// Auto-create or update account when EA sends data
+async function upsertAccount(login, label) {
+  const now = Math.floor(Date.now() / 1000);
   const result = await pool.query(
-    'INSERT INTO accounts (login, api_key_hash, label) VALUES ($1, $2, $3) RETURNING *',
-    [login, apiKeyHash, label]
+    `INSERT INTO accounts (login, label, created_at, last_seen_at)
+     VALUES ($1, $2, $3, $3)
+     ON CONFLICT (login)
+     DO UPDATE SET label = $2, last_seen_at = $3
+     RETURNING *`,
+    [login, label || `Account ${login}`, now]
   );
-  console.log(`✅ Account added: login=${login}, label="${label}"`);
   return result.rows[0];
-}
-
-// Update account label (called when EA sends account_name)
-async function updateAccountLabel(login, newLabel) {
-  const result = await pool.query(
-    'UPDATE accounts SET label = $1 WHERE login = $2',
-    [newLabel, login]
-  );
-  return result;
-}
-
-// Verify account API key
-async function verifyAccount(login, apiKey) {
-  const result = await pool.query(
-    'SELECT api_key_hash FROM accounts WHERE login = $1',
-    [login]
-  );
-
-  if (result.rows.length === 0) {
-    return false;
-  }
-
-  try {
-    return compareApiKey(apiKey, result.rows[0].api_key_hash);
-  } catch (err) {
-    return false;
-  }
 }
 
 // Add a snapshot (with rate limiting - max once per 15 seconds per account)
@@ -147,18 +135,44 @@ async function addSnapshot(login, data) {
   }
 
   const result = await pool.query(
-    `INSERT INTO snapshots (login, balance, equity, cycle_net, realized_bank, floating_pnl, currency, server, ea_timestamp, received_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+    `INSERT INTO snapshots (
+      login, schema_version, snapshot_id, sampled_at_utc, source_mode,
+      account_name, server, currency, balance, equity,
+      ea_name, ea_version, ea_instance_id, ea_symbol, ea_magic, ea_status,
+      cycle_id, cycle_active, cycle_net, cycle_realized_bank, cycle_floating,
+      cycle_active_target, cycle_profit_basis, cycle_open_positions,
+      cycle_pending_orders, cycle_accounting_confirmed, received_at
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+      $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+    ) RETURNING *`,
     [
       login,
-      data.balance,
-      data.equity,
-      data.cycle_net,
-      data.realized_bank,
-      data.floating_pnl,
-      data.currency || 'USD',
-      data.server || null,
-      data.ts || null,
+      data.schema_version || 1,
+      data.snapshot_id || null,
+      data.sampled_at_utc || null,
+      data.source_mode || null,
+      data.account?.name || null,
+      data.account?.server || null,
+      data.account?.currency || 'USD',
+      data.account?.balance || 0,
+      data.account?.equity || 0,
+      data.ea?.name || null,
+      data.ea?.version || null,
+      data.ea?.instance_id || null,
+      data.ea?.symbol || null,
+      data.ea?.magic || null,
+      data.ea?.status || null,
+      data.cycle?.id || null,
+      data.cycle?.active || null,
+      data.cycle?.net || 0,
+      data.cycle?.realized_bank || 0,
+      data.cycle?.floating || 0,
+      data.cycle?.active_target || null,
+      data.cycle?.profit_basis || null,
+      data.cycle?.open_positions || null,
+      data.cycle?.pending_orders || null,
+      data.cycle?.accounting_confirmed || null,
       now
     ]
   );
@@ -197,13 +211,28 @@ async function getAllAccounts() {
       a.login,
       a.label,
       a.created_at,
+      a.last_seen_at,
       s.balance,
       s.equity,
       s.cycle_net,
-      s.realized_bank,
-      s.floating_pnl,
+      s.cycle_realized_bank as realized_bank,
+      s.cycle_floating as floating_pnl,
       s.currency,
       s.server,
+      s.account_name,
+      s.source_mode,
+      s.ea_name,
+      s.ea_version,
+      s.ea_symbol,
+      s.ea_magic,
+      s.ea_status,
+      s.cycle_id,
+      s.cycle_active,
+      s.cycle_active_target,
+      s.cycle_profit_basis,
+      s.cycle_open_positions,
+      s.cycle_pending_orders,
+      s.cycle_accounting_confirmed,
       s.received_at
     FROM accounts a
     LEFT JOIN LATERAL (
@@ -213,14 +242,14 @@ async function getAllAccounts() {
       ORDER BY received_at DESC
       LIMIT 1
     ) s ON true
-    ORDER BY a.login
+    ORDER BY a.last_seen_at DESC
   `);
 
   const accounts = result.rows;
   console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
   if (accounts.length > 0) {
     accounts.forEach(acc => {
-      console.log(`   - Login: ${acc.login}, Label: "${acc.label}"`);
+      console.log(`   - Login: ${acc.login}, Label: "${acc.label}", EA: ${acc.ea_name || 'N/A'}`);
     });
   }
   return accounts;
@@ -293,10 +322,7 @@ setInterval(async () => {
 
 module.exports = {
   pool,
-  hashApiKey,
-  addAccount,
-  updateAccountLabel,
-  verifyAccount,
+  upsertAccount,
   addSnapshot,
   getLatestSnapshot,
   getHistory,
