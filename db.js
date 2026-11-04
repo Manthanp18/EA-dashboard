@@ -491,7 +491,7 @@ async function getAllAccounts() {
         ORDER BY received_at DESC
         LIMIT 1
       ) s ON true
-      ORDER BY a.last_seen_at DESC
+      ORDER BY a.login ASC
     `);
 
     const accounts = result.rows;
@@ -544,7 +544,7 @@ async function getAllAccounts() {
           LIMIT 1
         )
       ) s ON a.login = s.login
-      ORDER BY a.last_seen_at DESC
+      ORDER BY a.login ASC
     `).all();
 
     console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
