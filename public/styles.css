@@ -103,6 +103,61 @@ body {
   flex-wrap: wrap;
 }
 
+/* Portfolio Summary */
+.portfolio-summary {
+  background: #141824;
+  padding: 16px 20px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  border: 1px solid #1e293b;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+}
+
+.summary-metric {
+  text-align: center;
+  padding: 12px;
+  background: rgba(15, 20, 25, 0.5);
+  border-radius: 10px;
+  border: 1px solid #1e293b;
+  transition: all 0.3s;
+}
+
+.summary-metric:hover {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: #334155;
+  transform: translateY(-2px);
+}
+
+.summary-label {
+  font-size: 10px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.summary-value.positive {
+  color: #10b981;
+}
+
+.summary-value.negative {
+  color: #ef4444;
+}
+
+.summary-value.neutral {
+  color: #3b82f6;
+}
+
 /* Buttons */
 .btn {
   padding: 10px 20px;
@@ -229,16 +284,16 @@ body {
 /* Accounts Grid */
 .accounts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 24px;
 }
 
 .account-card {
   background: linear-gradient(135deg, #141824 0%, #1a1f2e 100%);
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid #1e293b;
-  padding: 20px;
+  padding: 14px;
   transition: all 0.3s ease;
   cursor: pointer;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -288,8 +343,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #1e293b;
   position: relative;
 }
@@ -302,13 +357,13 @@ body {
 .account-title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .account-info h3 {
   color: #f1f5f9;
-  font-size: 18px;
+  font-size: 15px;
   margin: 0;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -318,44 +373,44 @@ body {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 4px;
+  gap: 4px;
+  margin-bottom: 2px;
 }
 
 .account-number {
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
 }
 
 .meta-divider {
   color: #475569;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .meta-item {
   color: #64748b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 500;
 }
 
 .meta-badge {
   color: #3b82f6;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   background: rgba(59, 130, 246, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
 }
 
 .ea-info {
   color: #64748b;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .card-footer {
@@ -429,15 +484,15 @@ body {
 
 .metrics-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .metric {
-  padding: 12px;
+  padding: 8px;
   background: rgba(15, 20, 25, 0.5);
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid #1e293b;
   transition: all 0.3s;
 }
@@ -448,18 +503,18 @@ body {
 }
 
 .metric-label {
-  font-size: 10px;
+  font-size: 9px;
   color: #94a3b8;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .metric-value {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
 }
 
 .metric-value.positive {
@@ -752,6 +807,34 @@ body {
 }
 
 /* Responsive */
+@media (max-width: 1400px) {
+  .accounts-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .portfolio-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .accounts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .portfolio-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .container {
+    padding: 16px;
+  }
+
+  .dashboard-header {
+    padding: 16px 20px;
+  }
+}
+
 @media (max-width: 768px) {
   .dashboard-header {
     flex-direction: column;
@@ -766,12 +849,18 @@ body {
     flex: 1;
   }
 
+  .portfolio-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
   .accounts-grid {
     grid-template-columns: 1fr;
   }
 
   .metrics-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .chart-container {
@@ -785,5 +874,36 @@ body {
   .pagination {
     flex-direction: column;
     gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 12px;
+  }
+
+  .accounts-grid {
+    gap: 12px;
+  }
+
+  .account-card {
+    padding: 12px;
+  }
+
+  .metrics-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .metric {
+    padding: 6px;
+  }
+
+  .metric-value {
+    font-size: 14px;
+  }
+
+  .account-info h3 {
+    font-size: 14px;
   }
 }

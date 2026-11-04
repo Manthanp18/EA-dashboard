@@ -10,6 +10,7 @@ const logoutBtn = document.getElementById('logoutBtn');
 const refreshBtn = document.getElementById('refreshBtn');
 const addAccountBtn = document.getElementById('addAccountBtn');
 const accountsGrid = document.getElementById('accountsGrid');
+const portfolioSummary = document.getElementById('portfolioSummary');
 
 // Modals
 const chartModal = document.getElementById('chartModal');
@@ -383,7 +384,59 @@ async function createMiniChart(login, canvasId) {
   }
 }
 
+function updatePortfolioSummary(accounts) {
+  if (accounts.length === 0) {
+    portfolioSummary.classList.add('hidden');
+    return;
+  }
+
+  portfolioSummary.classList.remove('hidden');
+
+  // Calculate totals
+  let totalDailyRealized = 0;
+  let totalCycleNet = 0;
+  let totalRealizedBank = 0;
+  let totalFloating = 0;
+  let totalBalance = 0;
+  let totalEquity = 0;
+  let currency = 'USD'; // Default currency
+
+  accounts.forEach(account => {
+    totalDailyRealized += account.daily_realized || 0;
+    totalCycleNet += account.cycle_net || 0;
+    totalRealizedBank += account.realized_bank || 0;
+    totalFloating += account.floating_pnl || 0;
+    totalBalance += account.balance || 0;
+    totalEquity += account.equity || 0;
+    if (account.currency && account.currency !== 'USD') {
+      currency = account.currency; // Use first non-USD currency or stick with USD
+    }
+  });
+
+  // Update UI
+  document.getElementById('totalDailyRealized').textContent = `${formatNumber(totalDailyRealized)} ${currency}`;
+  document.getElementById('totalDailyRealized').className = `summary-value ${getValueClass(totalDailyRealized)}`;
+
+  document.getElementById('totalCycleNet').textContent = `${formatNumber(totalCycleNet)} ${currency}`;
+  document.getElementById('totalCycleNet').className = `summary-value ${getValueClass(totalCycleNet)}`;
+
+  document.getElementById('totalRealizedBank').textContent = `${formatNumber(totalRealizedBank)} ${currency}`;
+  document.getElementById('totalRealizedBank').className = `summary-value ${getValueClass(totalRealizedBank)}`;
+
+  document.getElementById('totalFloating').textContent = `${formatNumber(totalFloating)} ${currency}`;
+  document.getElementById('totalFloating').className = `summary-value ${getValueClass(totalFloating)}`;
+
+  document.getElementById('totalBalance').textContent = `${formatNumber(totalBalance)} ${currency}`;
+  document.getElementById('totalBalance').className = `summary-value neutral`;
+
+  document.getElementById('totalEquity').textContent = `${formatNumber(totalEquity)} ${currency}`;
+  document.getElementById('totalEquity').className = `summary-value neutral`;
+}
+
 async function updateAccountsUI(accounts) {
+  // Update portfolio summary
+  updatePortfolioSummary(accounts);
+
   // Clear old mini charts
   miniCharts.forEach(chart => chart.destroy());
   miniCharts.clear();
