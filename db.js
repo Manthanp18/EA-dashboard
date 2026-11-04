@@ -482,7 +482,8 @@ async function getAllAccounts() {
         s.cycle_open_positions,
         s.cycle_pending_orders,
         s.cycle_accounting_confirmed,
-        s.received_at
+        s.received_at,
+        COALESCE(s.cycle_realized_bank - start_of_day.cycle_realized_bank, 0) as daily_realized
       FROM accounts a
       LEFT JOIN LATERAL (
         SELECT *
@@ -491,6 +492,14 @@ async function getAllAccounts() {
         ORDER BY received_at DESC
         LIMIT 1
       ) s ON true
+      LEFT JOIN LATERAL (
+        SELECT cycle_realized_bank
+        FROM snapshots
+        WHERE snapshots.login = a.login
+          AND received_at >= EXTRACT(EPOCH FROM DATE_TRUNC('day', NOW()))::BIGINT
+        ORDER BY received_at ASC
+        LIMIT 1
+      ) start_of_day ON true
       ORDER BY a.login ASC
     `);
 
@@ -504,6 +513,8 @@ async function getAllAccounts() {
     return accounts;
   } else {
     // SQLite version
+    const startOfDayTimestamp = Math.floor(new Date(new Date().toDateString()).getTime() / 1000);
+
     const accounts = db.prepare(`
       SELECT
         a.login,
@@ -531,7 +542,8 @@ async function getAllAccounts() {
         s.cycle_open_positions,
         s.cycle_pending_orders,
         s.cycle_accounting_confirmed,
-        s.received_at
+        s.received_at,
+        COALESCE(s.cycle_realized_bank - start_of_day.cycle_realized_bank, 0) as daily_realized
       FROM accounts a
       LEFT JOIN (
         SELECT *
@@ -544,8 +556,15 @@ async function getAllAccounts() {
           LIMIT 1
         )
       ) s ON a.login = s.login
+      LEFT JOIN (
+        SELECT login, cycle_realized_bank
+        FROM snapshots
+        WHERE login = a.login AND received_at >= ?
+        ORDER BY received_at ASC
+        LIMIT 1
+      ) start_of_day ON a.login = start_of_day.login
       ORDER BY a.login ASC
-    `).all();
+    `).all(startOfDayTimestamp);
 
     console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
     if (accounts.length > 0) {

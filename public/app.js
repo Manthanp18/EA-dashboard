@@ -224,6 +224,13 @@ async function createAccountCard(account) {
     </div>
     <div class="metrics-row">
       <div class="metric">
+        <div class="metric-label">Daily Realized</div>
+        <div class="metric-value ${getValueClass(account.daily_realized || 0)}">
+          ${formatNumber(account.daily_realized || 0)}
+          <span class="metric-currency">${escapeHtml(account.currency)}</span>
+        </div>
+      </div>
+      <div class="metric">
         <div class="metric-label">Cycle Net</div>
         <div class="metric-value ${getValueClass(account.cycle_net)}">
           ${formatNumber(account.cycle_net)}
