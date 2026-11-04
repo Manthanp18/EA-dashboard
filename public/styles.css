@@ -37,6 +37,13 @@ body {
   border: 1px solid #2d3748;
 }
 
+.login-logo {
+  display: block;
+  width: 180px;
+  height: auto;
+  margin: 0 auto 24px;
+}
+
 .login-card h2 {
   color: #e2e8f0;
   margin-bottom: 8px;
@@ -65,6 +72,17 @@ body {
   flex-wrap: wrap;
   gap: 16px;
   border: 1px solid #1e293b;
+}
+
+.header-logo-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dashboard-logo {
+  width: 50px;
+  height: auto;
 }
 
 .dashboard-header h1 {
