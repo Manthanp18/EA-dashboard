@@ -101,6 +101,18 @@ async function initializeSchema() {
         -- Add new snapshot columns if missing
         DO $$
         BEGIN
+          -- Core cycle columns (NOT NULL with defaults)
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_net') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_net REAL NOT NULL DEFAULT 0;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_realized_bank') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_realized_bank REAL NOT NULL DEFAULT 0;
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_floating') THEN
+            ALTER TABLE snapshots ADD COLUMN cycle_floating REAL NOT NULL DEFAULT 0;
+          END IF;
+
+          -- Metadata columns
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='schema_version') THEN
             ALTER TABLE snapshots ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1;
           END IF;
@@ -113,6 +125,8 @@ async function initializeSchema() {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='source_mode') THEN
             ALTER TABLE snapshots ADD COLUMN source_mode TEXT;
           END IF;
+
+          -- Account columns
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='account_name') THEN
             ALTER TABLE snapshots ADD COLUMN account_name TEXT;
           END IF;
@@ -122,6 +136,8 @@ async function initializeSchema() {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='currency') THEN
             ALTER TABLE snapshots ADD COLUMN currency TEXT NOT NULL DEFAULT 'USD';
           END IF;
+
+          -- EA columns
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_name') THEN
             ALTER TABLE snapshots ADD COLUMN ea_name TEXT;
           END IF;
@@ -140,6 +156,8 @@ async function initializeSchema() {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='ea_status') THEN
             ALTER TABLE snapshots ADD COLUMN ea_status TEXT;
           END IF;
+
+          -- Cycle detail columns
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_id') THEN
             ALTER TABLE snapshots ADD COLUMN cycle_id TEXT;
           END IF;
