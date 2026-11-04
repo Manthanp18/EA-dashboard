@@ -82,6 +82,14 @@ async function initializeSchema() {
 
       // Migrate existing schema to add new columns (safe - won't fail if columns exist)
       await pool.query(`
+        -- Remove old api_key_hash column (we don't use API keys anymore)
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='accounts' AND column_name='api_key_hash') THEN
+            ALTER TABLE accounts DROP COLUMN api_key_hash;
+          END IF;
+        END $$;
+
         -- Add last_seen_at to accounts if missing
         DO $$
         BEGIN
