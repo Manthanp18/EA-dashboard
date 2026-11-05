@@ -5674,8 +5674,33 @@ void HttpPushDashboardData()
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit/loss
 
-   // Today's P&L is simply the current account profit
-   double todayPnl = profit;
+   // Calculate today's REALIZED profit (closed deals only, no floating)
+   double todayPnl = 0.0;  // Start at zero
+
+   // Get today's start time (midnight broker time)
+   datetime now = TimeTradeServer();
+   MqlDateTime dt;
+   TimeToStruct(now, dt);
+   dt.hour = 0;
+   dt.min = 0;
+   dt.sec = 0;
+   datetime midnight = StructToTime(dt);
+
+   // Sum all closed deals from today
+   if(HistorySelect(midnight, now))
+   {
+      int total = HistoryDealsTotal();
+      for(int i = 0; i < total; i++)
+      {
+         ulong ticket = HistoryDealGetTicket(i);
+         if(ticket > 0)
+         {
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_SWAP);
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+         }
+      }
+   }
 
    //--- EA DATA ---
    string eaName = "Straddle";
