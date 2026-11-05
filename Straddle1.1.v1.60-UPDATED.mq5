@@ -5674,8 +5674,40 @@ void HttpPushDashboardData()
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit
 
-   // Calculate today's PnL (equity - start_of_day_balance)
-   double todayPnl = equity - (gDayStartBalance > 0.0 ? gDayStartBalance : balance);
+   // Calculate today's PnL from closed deals + floating P&L
+   double todayPnl = 0.0;
+
+   // Get start of today in UTC
+   MqlDateTime dtToday;
+   TimeToStruct(TimeCurrent(), dtToday);
+   dtToday.hour = 0;
+   dtToday.min = 0;
+   dtToday.sec = 0;
+   datetime startOfToday = StructToTime(dtToday);
+
+   // Sum all closed deals profit from today
+   HistorySelect(startOfToday, TimeCurrent());
+   int totalDeals = HistoryDealsTotal();
+   for(int i = 0; i < totalDeals; i++)
+   {
+      ulong ticket = HistoryDealGetTicket(i);
+      if(ticket > 0)
+      {
+         // Only count deals for this symbol and magic (if filter is set)
+         string dealSymbol = HistoryDealGetString(ticket, DEAL_SYMBOL);
+         long dealMagic = HistoryDealGetInteger(ticket, DEAL_MAGIC);
+
+         if(dealSymbol == _Symbol && (InpMagicFilter == 0 || dealMagic == InpMagicFilter))
+         {
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_SWAP);
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+         }
+      }
+   }
+
+   // Add current floating P&L
+   todayPnl += profit;
 
    //--- EA DATA ---
    string eaName = "Straddle";
