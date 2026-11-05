@@ -1,7 +1,7 @@
 {
-  "name": "tatva-trading-dashboard",
+  "name": "tattva-trading-dashboard",
   "version": "1.0.0",
-  "description": "Tatva Trading Dashboard - Real-time monitoring for MT5 Expert Advisors",
+  "description": "Tattva Trading Dashboard - Real-time monitoring for MT5 Expert Advisors",
   "main": "server.js",
   "engines": {
     "node": "18.x"
