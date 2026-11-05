@@ -5686,7 +5686,7 @@ void HttpPushDashboardData()
    dtToday.sec = 0;
    datetime midnight = StructToTime(dtToday);
 
-   // Sum all closed deals from today
+   // Sum all closed deals from today (ONLY trading, no deposits/withdrawals)
    if(HistorySelect(midnight, serverTime))
    {
       int total = HistoryDealsTotal();
@@ -5695,6 +5695,10 @@ void HttpPushDashboardData()
          ulong ticket = HistoryDealGetTicket(i);
          if(ticket > 0)
          {
+            // Skip balance operations (deposits/withdrawals) - only count actual trades
+            long dealType = HistoryDealGetInteger(ticket, DEAL_TYPE);
+            if(dealType == DEAL_TYPE_BALANCE) continue;
+
             todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
             todayPnl += HistoryDealGetDouble(ticket, DEAL_SWAP);
             todayPnl += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
