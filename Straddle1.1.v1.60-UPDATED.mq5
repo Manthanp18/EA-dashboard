@@ -5678,16 +5678,16 @@ void HttpPushDashboardData()
    double todayPnl = 0.0;  // Start at zero
 
    // Get today's start time (midnight broker time)
-   datetime now = TimeTradeServer();
-   MqlDateTime dt;
-   TimeToStruct(now, dt);
-   dt.hour = 0;
-   dt.min = 0;
-   dt.sec = 0;
-   datetime midnight = StructToTime(dt);
+   datetime serverTime = TimeTradeServer();
+   MqlDateTime dtToday;
+   TimeToStruct(serverTime, dtToday);
+   dtToday.hour = 0;
+   dtToday.min = 0;
+   dtToday.sec = 0;
+   datetime midnight = StructToTime(dtToday);
 
    // Sum all closed deals from today
-   if(HistorySelect(midnight, now))
+   if(HistorySelect(midnight, serverTime))
    {
       int total = HistoryDealsTotal();
       for(int i = 0; i < total; i++)
