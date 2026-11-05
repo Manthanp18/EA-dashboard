@@ -5674,10 +5674,10 @@ void HttpPushDashboardData()
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
    double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit
 
-   // Calculate today's PnL from closed deals + floating P&L
+   // Calculate today's PnL: ALL closed deals today + current floating profit
    double todayPnl = 0.0;
 
-   // Get start of today in UTC
+   // Get start of today at midnight (server time)
    MqlDateTime dtToday;
    TimeToStruct(TimeCurrent(), dtToday);
    dtToday.hour = 0;
@@ -5685,28 +5685,33 @@ void HttpPushDashboardData()
    dtToday.sec = 0;
    datetime startOfToday = StructToTime(dtToday);
 
-   // Sum all closed deals profit from today
-   HistorySelect(startOfToday, TimeCurrent());
-   int totalDeals = HistoryDealsTotal();
-   for(int i = 0; i < totalDeals; i++)
+   // Select history from start of today
+   if(HistorySelect(startOfToday, TimeCurrent()))
    {
-      ulong ticket = HistoryDealGetTicket(i);
-      if(ticket > 0)
-      {
-         // Only count deals for this symbol and magic (if filter is set)
-         string dealSymbol = HistoryDealGetString(ticket, DEAL_SYMBOL);
-         long dealMagic = HistoryDealGetInteger(ticket, DEAL_MAGIC);
+      int totalDeals = HistoryDealsTotal();
 
-         if(dealSymbol == _Symbol && (InpMagicFilter == 0 || dealMagic == InpMagicFilter))
+      // Sum ALL deals profit/loss from today (all symbols, all magics)
+      for(int i = 0; i < totalDeals; i++)
+      {
+         ulong ticket = HistoryDealGetTicket(i);
+         if(ticket > 0)
          {
-            todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+            long dealEntry = HistoryDealGetInteger(ticket, DEAL_ENTRY);
+
+            // Count OUT deals (when position closes) and INOUT deals (instant execution)
+            if(dealEntry == DEAL_ENTRY_OUT || dealEntry == DEAL_ENTRY_INOUT)
+            {
+               todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+            }
+
+            // Always add swap and commission for all deal types
             todayPnl += HistoryDealGetDouble(ticket, DEAL_SWAP);
             todayPnl += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
          }
       }
    }
 
-   // Add current floating P&L
+   // Add current floating P&L from all open positions
    todayPnl += profit;
 
    //--- EA DATA ---
