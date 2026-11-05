@@ -5672,42 +5672,10 @@ void HttpPushDashboardData()
    string currency = AccountInfoString(ACCOUNT_CURRENCY);
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
-   double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit
+   double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit/loss
 
-   // Get today's P&L using MT5's built-in statistics (no timezone calculation needed)
-   // This includes closed trades profit + current floating P&L
-   double todayPnl = 0.0;
-
-   // Calculate from start of day using TimeTradeServer() for broker time
-   MqlDateTime dtNow;
-   datetime serverTime = TimeTradeServer();
-   TimeToStruct(serverTime, dtNow);
-
-   // Set to start of today (midnight)
-   dtNow.hour = 0;
-   dtNow.min = 0;
-   dtNow.sec = 0;
-   datetime dayStart = StructToTime(dtNow);
-
-   // Load deal history from start of today
-   if(HistorySelect(dayStart, serverTime))
-   {
-      // Sum closed deals profit
-      int total = HistoryDealsTotal();
-      for(int i = 0; i < total; i++)
-      {
-         ulong ticket = HistoryDealGetTicket(i);
-         if(ticket > 0)
-         {
-            todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
-            todayPnl += HistoryDealGetDouble(ticket, DEAL_SWAP);
-            todayPnl += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
-         }
-      }
-   }
-
-   // Add current floating P&L
-   todayPnl += profit;
+   // Today's P&L is simply the current account profit
+   double todayPnl = profit;
 
    //--- EA DATA ---
    string eaName = "Straddle";
