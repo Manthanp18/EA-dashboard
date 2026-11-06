@@ -145,19 +145,24 @@ function showLoginScreen() {
   dashboardScreen.classList.add('hidden');
 }
 
-function showDashboardScreen() {
-  loginScreen.classList.add('hidden');
-  dashboardScreen.classList.remove('hidden');
-  // Load initial accounts
-  loadAccounts();
-
-  // Set up Server-Sent Events for real-time updates
+function setupSSE() {
+  // Close existing connection if any
   if (eventSource) {
     eventSource.close();
   }
 
   const token = getSessionToken();
+  if (!token) {
+    console.error('No session token available for SSE');
+    return;
+  }
+
+  console.log('Setting up SSE connection...');
   eventSource = new EventSource(`/api/dashboard/stream?token=${encodeURIComponent(token)}`);
+
+  eventSource.onopen = () => {
+    console.log('SSE connection established');
+  };
 
   eventSource.onmessage = (event) => {
     try {
@@ -172,16 +177,30 @@ function showDashboardScreen() {
 
   eventSource.onerror = (err) => {
     console.error('SSE connection error:', err);
-    eventSource.close();
 
-    // Reconnect after 5 seconds
+    // Only close and reconnect if we still have a valid session
+    if (eventSource) {
+      eventSource.close();
+    }
+
+    // Reconnect after 5 seconds if we still have a session token
     setTimeout(() => {
       if (sessionToken) {
-        const token = getSessionToken();
-        eventSource = new EventSource(`/api/dashboard/stream?token=${encodeURIComponent(token)}`);
+        console.log('Reconnecting SSE...');
+        setupSSE(); // Recursively call to setup with all handlers
       }
     }, 5000);
   };
+}
+
+function showDashboardScreen() {
+  loginScreen.classList.add('hidden');
+  dashboardScreen.classList.remove('hidden');
+  // Load initial accounts
+  loadAccounts();
+
+  // Set up Server-Sent Events for real-time updates
+  setupSSE();
 }
 
 async function createAccountCard(account) {

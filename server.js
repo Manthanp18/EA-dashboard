@@ -62,8 +62,14 @@ async function broadcastAccountUpdate(login) {
 
     sseClients.forEach(client => {
       try {
-        client.write(`data: ${data}\n\n`);
+        // Check if the connection is still writable
+        if (client.writable) {
+          client.write(`data: ${data}\n\n`);
+        } else {
+          sseClients.delete(client);
+        }
       } catch (err) {
+        console.error('Error broadcasting to SSE client:', err.message);
         sseClients.delete(client);
       }
     });
@@ -220,6 +226,7 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.flushHeaders(); // Flush headers immediately to establish connection
 
   // Add this client to active connections
   sseClients.add(res);
@@ -258,13 +265,26 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
     console.error('Error sending initial SSE data:', err);
   }
 
-  // Send heartbeat every 30 seconds to keep connection alive
+  // Send heartbeat every 15 seconds to keep connection alive (reduced from 30s)
   const heartbeat = setInterval(() => {
-    res.write(': heartbeat\n\n');
-  }, 30000);
+    try {
+      res.write(': heartbeat\n\n');
+    } catch (err) {
+      // Connection is dead, clean up
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    }
+  }, 15000);
 
   // Remove client when connection closes
   req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
+
+  // Handle errors on the response stream
+  req.on('error', (err) => {
+    console.error('SSE request error:', err);
     clearInterval(heartbeat);
     sseClients.delete(res);
   });
