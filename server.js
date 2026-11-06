@@ -26,10 +26,10 @@ app.set('trust proxy', 1);
 // SSE: Track active dashboard connections
 const sseClients = new Set();
 
-// Helper: Check if account data has changed (EA is actually running)
-function hasDataChanged(account) {
-  // If no previous data exists, consider it as changed (first time)
-  if (!account.prev_equity && !account.prev_cycle_net && !account.prev_floating_pnl) {
+// Helper: Check if EA is actually trading (not just running but idle/stopped)
+function isActivelyTrading(account) {
+  // If no previous data exists, assume active
+  if (account.prev_equity === null || account.prev_equity === undefined) {
     return true;
   }
 
@@ -40,7 +40,7 @@ function hasDataChanged(account) {
   const positionsChanged = account.cycle_open_positions !== account.prev_open_positions;
   const todayPnlChanged = account.today_pnl !== account.prev_today_pnl;
 
-  // EA is running if ANY of these changed
+  // Actively trading if ANY metric changed
   return equityChanged || cycleNetChanged || floatingChanged || positionsChanged || todayPnlChanged;
 }
 
@@ -53,9 +53,9 @@ async function broadcastAccountUpdate(login) {
     const now = Math.floor(Date.now() / 1000);
 
     const enrichedAccounts = accounts.map(account => {
-      // Check if received data recently AND data is actually changing
+      // EA is online if receiving data recently (within 30 seconds)
+      // This means EA is attached to chart and running
       const receivedRecently = account.received_at ? (now - account.received_at) < 30 : false;
-      const dataChanged = hasDataChanged(account);
 
       return {
         login: account.login,
@@ -77,7 +77,8 @@ async function broadcastAccountUpdate(login) {
         ea_status: account.ea_status || null,
         cycle_open_positions: account.cycle_open_positions || 0,
         cycle_pending_orders: account.cycle_pending_orders || 0,
-        is_online: receivedRecently && dataChanged,
+        is_online: receivedRecently,
+        is_trading: isActivelyTrading(account),
         last_update: account.received_at || null
       };
     });
@@ -262,7 +263,6 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
 
     const enrichedAccounts = accounts.map(account => {
       const receivedRecently = account.received_at ? (now - account.received_at) < 30 : false;
-      const dataChanged = hasDataChanged(account);
 
       return {
         login: account.login,
@@ -284,7 +284,8 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
         ea_status: account.ea_status || null,
         cycle_open_positions: account.cycle_open_positions || 0,
         cycle_pending_orders: account.cycle_pending_orders || 0,
-        is_online: receivedRecently && dataChanged,
+        is_online: receivedRecently,
+        is_trading: isActivelyTrading(account),
         last_update: account.received_at || null
       };
     });
@@ -327,7 +328,6 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, re
 
     const enrichedAccounts = accounts.map(account => {
       const receivedRecently = account.received_at ? (now - account.received_at) < 30 : false;
-      const dataChanged = hasDataChanged(account);
 
       return {
         login: account.login,
@@ -349,7 +349,8 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, re
         ea_status: account.ea_status || null,
         cycle_open_positions: account.cycle_open_positions || 0,
         cycle_pending_orders: account.cycle_pending_orders || 0,
-        is_online: receivedRecently && dataChanged,
+        is_online: receivedRecently,
+        is_trading: isActivelyTrading(account),
         last_update: account.received_at || null
       };
     });
