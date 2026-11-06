@@ -265,6 +265,15 @@ async function createAccountCard(account) {
           <span class="metric-currency">${escapeHtml(account.currency)}</span>
         </div>
       </div>
+      ${account.cycle_active_target !== null && account.cycle_active_target !== undefined ? `
+      <div class="metric">
+        <div class="metric-label">Active Target</div>
+        <div class="metric-value neutral">
+          ${formatNumber(account.cycle_active_target)}
+          <span class="metric-currency">${escapeHtml(account.currency)}</span>
+        </div>
+      </div>
+      ` : ''}
       <div class="metric">
         <div class="metric-label">Balance</div>
         <div class="metric-value neutral">
