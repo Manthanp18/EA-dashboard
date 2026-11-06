@@ -210,14 +210,9 @@ async function createAccountCard(account) {
 
   const isOnline = account.is_online;
   const statusClass = isOnline ? 'online' : 'offline';
-  const statusText = isOnline ? 'EA Online' : 'EA Offline';
+  const statusText = isOnline ? 'EA Running' : 'EA Offline';
 
   const canvasId = `miniChart_${account.login}`;
-
-  // EA status badge
-  const eaStatusClass = account.ea_status === 'RUNNING' ? 'online' :
-                        account.ea_status === 'PAUSED' ? 'paused' : 'offline';
-  const eaStatusText = account.ea_status || statusText;
 
   // Build EA info line
   const eaInfo = account.ea_name ?
@@ -230,7 +225,7 @@ async function createAccountCard(account) {
       <div class="account-info">
         <div class="account-title-row">
           <h3>${escapeHtml(account.label)}</h3>
-          <span class="status-indicator ${eaStatusClass}"></span>
+          <span class="status-indicator ${statusClass}"></span>
         </div>
         <div class="account-meta">
           <span class="account-number">${account.login}</span>
