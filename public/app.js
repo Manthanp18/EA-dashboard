@@ -212,6 +212,10 @@ async function createAccountCard(account) {
   const isOnline = account.terminal_algo_trading_enabled !== null && account.terminal_algo_trading_enabled !== undefined
     ? account.terminal_algo_trading_enabled
     : account.is_online;
+
+  // Debug logging
+  console.log(`[${account.login}] terminal_algo_trading_enabled:`, account.terminal_algo_trading_enabled, 'is_online:', account.is_online, 'final isOnline:', isOnline);
+
   const statusClass = isOnline ? 'online' : 'offline';
   const statusText = isOnline ? 'EA Running' : 'EA Offline';
 

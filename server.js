@@ -183,6 +183,9 @@ app.post('/api/push', pushLimiter, async (req, res) => {
     const accountLabel = data.account.name || data.ea?.name || `Account ${login}`;
     await upsertAccount(login, accountLabel);
 
+    // Debug: Log terminal status
+    console.log(`[${login}] Terminal algo_trading_enabled:`, data.terminal?.algo_trading_enabled);
+
     // Save snapshot
     const result = await addSnapshot(login, data);
 
