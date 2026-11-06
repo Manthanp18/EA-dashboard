@@ -199,6 +199,9 @@ async function initializeSchema() {
           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='cycle_accounting_confirmed') THEN
             ALTER TABLE snapshots ADD COLUMN cycle_accounting_confirmed BOOLEAN;
           END IF;
+          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='snapshots' AND column_name='terminal_algo_trading_enabled') THEN
+            ALTER TABLE snapshots ADD COLUMN terminal_algo_trading_enabled BOOLEAN;
+          END IF;
         END $$;
 
         -- Create indexes
@@ -251,6 +254,7 @@ async function initializeSchema() {
           cycle_open_positions INTEGER,
           cycle_pending_orders INTEGER,
           cycle_accounting_confirmed INTEGER,
+          terminal_algo_trading_enabled INTEGER,
 
           received_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
           FOREIGN KEY (login) REFERENCES accounts(login)
@@ -341,10 +345,10 @@ async function addSnapshot(login, data) {
         ea_name, ea_version, ea_instance_id, ea_symbol, ea_magic, ea_status,
         cycle_id, cycle_active, cycle_net, cycle_realized_bank, cycle_floating,
         cycle_active_target, cycle_profit_basis, cycle_open_positions,
-        cycle_pending_orders, cycle_accounting_confirmed, received_at
+        cycle_pending_orders, cycle_accounting_confirmed, terminal_algo_trading_enabled, received_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
+        $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
       ) RETURNING *`,
       [
         login,
@@ -375,6 +379,7 @@ async function addSnapshot(login, data) {
         data.cycle?.open_positions || null,
         data.cycle?.pending_orders || null,
         data.cycle?.accounting_confirmed || null,
+        data.terminal?.algo_trading_enabled || null,
         now
       ]
     );
@@ -397,9 +402,9 @@ async function addSnapshot(login, data) {
         ea_name, ea_version, ea_instance_id, ea_symbol, ea_magic, ea_status,
         cycle_id, cycle_active, cycle_net, cycle_realized_bank, cycle_floating,
         cycle_active_target, cycle_profit_basis, cycle_open_positions,
-        cycle_pending_orders, cycle_accounting_confirmed, received_at
+        cycle_pending_orders, cycle_accounting_confirmed, terminal_algo_trading_enabled, received_at
       ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
       )
     `);
 
@@ -432,6 +437,7 @@ async function addSnapshot(login, data) {
       data.cycle?.open_positions || null,
       data.cycle?.pending_orders || null,
       data.cycle?.accounting_confirmed ? 1 : 0,
+      data.terminal?.algo_trading_enabled ? 1 : 0,
       now
     );
 
@@ -506,6 +512,7 @@ async function getAllAccounts() {
         s1.cycle_open_positions,
         s1.cycle_pending_orders,
         s1.cycle_accounting_confirmed,
+        s1.terminal_algo_trading_enabled,
         s1.received_at,
         s1.today_pnl,
         s2.equity as prev_equity,
@@ -581,6 +588,7 @@ async function getAllAccounts() {
         cycle_open_positions: latest?.cycle_open_positions,
         cycle_pending_orders: latest?.cycle_pending_orders,
         cycle_accounting_confirmed: latest?.cycle_accounting_confirmed,
+        terminal_algo_trading_enabled: latest?.terminal_algo_trading_enabled,
         received_at: latest?.received_at,
         today_pnl: latest?.today_pnl,
         prev_equity: previous?.equity,

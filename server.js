@@ -78,6 +78,7 @@ async function broadcastAccountUpdate(login) {
         ea_status: account.ea_status || null,
         cycle_open_positions: account.cycle_open_positions || 0,
         cycle_pending_orders: account.cycle_pending_orders || 0,
+        terminal_algo_trading_enabled: account.terminal_algo_trading_enabled || null,
         is_online: receivedRecently,
         is_trading: isActivelyTrading(account),
         last_update: account.received_at || null
@@ -286,6 +287,7 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
         ea_status: account.ea_status || null,
         cycle_open_positions: account.cycle_open_positions || 0,
         cycle_pending_orders: account.cycle_pending_orders || 0,
+        terminal_algo_trading_enabled: account.terminal_algo_trading_enabled || null,
         is_online: receivedRecently,
         is_trading: isActivelyTrading(account),
         last_update: account.received_at || null
@@ -352,6 +354,7 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, re
         ea_status: account.ea_status || null,
         cycle_open_positions: account.cycle_open_positions || 0,
         cycle_pending_orders: account.cycle_pending_orders || 0,
+        terminal_algo_trading_enabled: account.terminal_algo_trading_enabled || null,
         is_online: receivedRecently,
         is_trading: isActivelyTrading(account),
         last_update: account.received_at || null

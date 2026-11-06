@@ -208,7 +208,10 @@ async function createAccountCard(account) {
   card.className = 'account-card';
   card.dataset.login = account.login;
 
-  const isOnline = account.is_online;
+  // Use terminal status if available (v1.65+), otherwise fallback to is_online
+  const isOnline = account.terminal_algo_trading_enabled !== null && account.terminal_algo_trading_enabled !== undefined
+    ? account.terminal_algo_trading_enabled
+    : account.is_online;
   const statusClass = isOnline ? 'online' : 'offline';
   const statusText = isOnline ? 'EA Running' : 'EA Offline';
 
