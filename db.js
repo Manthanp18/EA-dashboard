@@ -384,6 +384,7 @@ async function addSnapshot(login, data) {
       ]
     );
 
+    console.log(`✅ Stored snapshot for ${login}: terminal_algo_trading_enabled = ${result.rows[0].terminal_algo_trading_enabled}`);
     return result.rows[0];
   } else {
     // SQLite version
@@ -542,7 +543,7 @@ async function getAllAccounts() {
     console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
     if (accounts.length > 0) {
       accounts.forEach(acc => {
-        console.log(`   - Login: ${acc.login}, Label: "${acc.label}", EA: ${acc.ea_name || 'N/A'}`);
+        console.log(`   - Login: ${acc.login}, Label: "${acc.label}", EA: ${acc.ea_name || 'N/A'}, terminal_algo_trading_enabled: ${acc.terminal_algo_trading_enabled}`);
       });
     }
     return accounts;
