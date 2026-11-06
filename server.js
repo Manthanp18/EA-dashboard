@@ -26,6 +26,24 @@ app.set('trust proxy', 1);
 // SSE: Track active dashboard connections
 const sseClients = new Set();
 
+// Helper: Check if account data has changed (EA is actually running)
+function hasDataChanged(account) {
+  // If no previous data exists, consider it as changed (first time)
+  if (!account.prev_equity && !account.prev_cycle_net && !account.prev_floating_pnl) {
+    return true;
+  }
+
+  // Check if any key trading metrics have changed
+  const equityChanged = account.equity !== account.prev_equity;
+  const cycleNetChanged = account.cycle_net !== account.prev_cycle_net;
+  const floatingChanged = account.floating_pnl !== account.prev_floating_pnl;
+  const positionsChanged = account.cycle_open_positions !== account.prev_open_positions;
+  const todayPnlChanged = account.today_pnl !== account.prev_today_pnl;
+
+  // EA is running if ANY of these changed
+  return equityChanged || cycleNetChanged || floatingChanged || positionsChanged || todayPnlChanged;
+}
+
 // SSE: Broadcast account update to all connected dashboards
 async function broadcastAccountUpdate(login) {
   if (sseClients.size === 0) return;
@@ -34,29 +52,35 @@ async function broadcastAccountUpdate(login) {
     const accounts = await getAllAccounts();
     const now = Math.floor(Date.now() / 1000);
 
-    const enrichedAccounts = accounts.map(account => ({
-      login: account.login,
-      label: account.label,
-      balance: account.balance || 0,
-      equity: account.equity || 0,
-      cycle_net: account.cycle_net || 0,
-      realized_bank: account.realized_bank || 0,
-      floating_pnl: account.floating_pnl || 0,
-      today_pnl: account.today_pnl || 0,
-      currency: account.currency || 'USD',
-      server: account.server || null,
-      account_name: account.account_name || null,
-      source_mode: account.source_mode || null,
-      ea_name: account.ea_name || null,
-      ea_version: account.ea_version || null,
-      ea_symbol: account.ea_symbol || null,
-      ea_magic: account.ea_magic || null,
-      ea_status: account.ea_status || null,
-      cycle_open_positions: account.cycle_open_positions || 0,
-      cycle_pending_orders: account.cycle_pending_orders || 0,
-      is_online: account.received_at ? (now - account.received_at) < 30 : false,
-      last_update: account.received_at || null
-    }));
+    const enrichedAccounts = accounts.map(account => {
+      // Check if received data recently AND data is actually changing
+      const receivedRecently = account.received_at ? (now - account.received_at) < 30 : false;
+      const dataChanged = hasDataChanged(account);
+
+      return {
+        login: account.login,
+        label: account.label,
+        balance: account.balance || 0,
+        equity: account.equity || 0,
+        cycle_net: account.cycle_net || 0,
+        realized_bank: account.realized_bank || 0,
+        floating_pnl: account.floating_pnl || 0,
+        today_pnl: account.today_pnl || 0,
+        currency: account.currency || 'USD',
+        server: account.server || null,
+        account_name: account.account_name || null,
+        source_mode: account.source_mode || null,
+        ea_name: account.ea_name || null,
+        ea_version: account.ea_version || null,
+        ea_symbol: account.ea_symbol || null,
+        ea_magic: account.ea_magic || null,
+        ea_status: account.ea_status || null,
+        cycle_open_positions: account.cycle_open_positions || 0,
+        cycle_pending_orders: account.cycle_pending_orders || 0,
+        is_online: receivedRecently && dataChanged,
+        last_update: account.received_at || null
+      };
+    });
 
     const data = JSON.stringify({ accounts: enrichedAccounts });
 
@@ -236,29 +260,34 @@ app.get('/api/dashboard/stream', requireAuth, async (req, res) => {
     const accounts = await getAllAccounts();
     const now = Math.floor(Date.now() / 1000);
 
-    const enrichedAccounts = accounts.map(account => ({
-      login: account.login,
-      label: account.label,
-      balance: account.balance || 0,
-      equity: account.equity || 0,
-      cycle_net: account.cycle_net || 0,
-      realized_bank: account.realized_bank || 0,
-      floating_pnl: account.floating_pnl || 0,
-      today_pnl: account.today_pnl || 0,
-      currency: account.currency || 'USD',
-      server: account.server || null,
-      account_name: account.account_name || null,
-      source_mode: account.source_mode || null,
-      ea_name: account.ea_name || null,
-      ea_version: account.ea_version || null,
-      ea_symbol: account.ea_symbol || null,
-      ea_magic: account.ea_magic || null,
-      ea_status: account.ea_status || null,
-      cycle_open_positions: account.cycle_open_positions || 0,
-      cycle_pending_orders: account.cycle_pending_orders || 0,
-      is_online: account.received_at ? (now - account.received_at) < 30 : false,
-      last_update: account.received_at || null
-    }));
+    const enrichedAccounts = accounts.map(account => {
+      const receivedRecently = account.received_at ? (now - account.received_at) < 30 : false;
+      const dataChanged = hasDataChanged(account);
+
+      return {
+        login: account.login,
+        label: account.label,
+        balance: account.balance || 0,
+        equity: account.equity || 0,
+        cycle_net: account.cycle_net || 0,
+        realized_bank: account.realized_bank || 0,
+        floating_pnl: account.floating_pnl || 0,
+        today_pnl: account.today_pnl || 0,
+        currency: account.currency || 'USD',
+        server: account.server || null,
+        account_name: account.account_name || null,
+        source_mode: account.source_mode || null,
+        ea_name: account.ea_name || null,
+        ea_version: account.ea_version || null,
+        ea_symbol: account.ea_symbol || null,
+        ea_magic: account.ea_magic || null,
+        ea_status: account.ea_status || null,
+        cycle_open_positions: account.cycle_open_positions || 0,
+        cycle_pending_orders: account.cycle_pending_orders || 0,
+        is_online: receivedRecently && dataChanged,
+        last_update: account.received_at || null
+      };
+    });
 
     res.write(`data: ${JSON.stringify({ accounts: enrichedAccounts })}\n\n`);
   } catch (err) {
@@ -296,29 +325,34 @@ app.get('/api/dashboard/accounts', requireAuth, dashboardLimiter, async (req, re
     const accounts = await getAllAccounts();
     const now = Math.floor(Date.now() / 1000);
 
-    const enrichedAccounts = accounts.map(account => ({
-      login: account.login,
-      label: account.label,
-      balance: account.balance || 0,
-      equity: account.equity || 0,
-      cycle_net: account.cycle_net || 0,
-      realized_bank: account.realized_bank || 0,
-      floating_pnl: account.floating_pnl || 0,
-      today_pnl: account.today_pnl || 0,
-      currency: account.currency || 'USD',
-      server: account.server || null,
-      account_name: account.account_name || null,
-      source_mode: account.source_mode || null,
-      ea_name: account.ea_name || null,
-      ea_version: account.ea_version || null,
-      ea_symbol: account.ea_symbol || null,
-      ea_magic: account.ea_magic || null,
-      ea_status: account.ea_status || null,
-      cycle_open_positions: account.cycle_open_positions || 0,
-      cycle_pending_orders: account.cycle_pending_orders || 0,
-      is_online: account.received_at ? (now - account.received_at) < 30 : false,
-      last_update: account.received_at || null
-    }));
+    const enrichedAccounts = accounts.map(account => {
+      const receivedRecently = account.received_at ? (now - account.received_at) < 30 : false;
+      const dataChanged = hasDataChanged(account);
+
+      return {
+        login: account.login,
+        label: account.label,
+        balance: account.balance || 0,
+        equity: account.equity || 0,
+        cycle_net: account.cycle_net || 0,
+        realized_bank: account.realized_bank || 0,
+        floating_pnl: account.floating_pnl || 0,
+        today_pnl: account.today_pnl || 0,
+        currency: account.currency || 'USD',
+        server: account.server || null,
+        account_name: account.account_name || null,
+        source_mode: account.source_mode || null,
+        ea_name: account.ea_name || null,
+        ea_version: account.ea_version || null,
+        ea_symbol: account.ea_symbol || null,
+        ea_magic: account.ea_magic || null,
+        ea_status: account.ea_status || null,
+        cycle_open_positions: account.cycle_open_positions || 0,
+        cycle_pending_orders: account.cycle_pending_orders || 0,
+        is_online: receivedRecently && dataChanged,
+        last_update: account.received_at || null
+      };
+    });
 
     res.status(200).json({ accounts: enrichedAccounts });
   } catch (err) {

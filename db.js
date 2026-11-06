@@ -485,29 +485,34 @@ async function getAllAccounts() {
         a.label,
         a.created_at,
         a.last_seen_at,
-        s.balance,
-        s.equity,
-        s.cycle_net,
-        s.cycle_realized_bank as realized_bank,
-        s.cycle_floating as floating_pnl,
-        s.currency,
-        s.server,
-        s.account_name,
-        s.source_mode,
-        s.ea_name,
-        s.ea_version,
-        s.ea_symbol,
-        s.ea_magic,
-        s.ea_status,
-        s.cycle_id,
-        s.cycle_active,
-        s.cycle_active_target,
-        s.cycle_profit_basis,
-        s.cycle_open_positions,
-        s.cycle_pending_orders,
-        s.cycle_accounting_confirmed,
-        s.received_at,
-        s.today_pnl
+        s1.balance,
+        s1.equity,
+        s1.cycle_net,
+        s1.cycle_realized_bank as realized_bank,
+        s1.cycle_floating as floating_pnl,
+        s1.currency,
+        s1.server,
+        s1.account_name,
+        s1.source_mode,
+        s1.ea_name,
+        s1.ea_version,
+        s1.ea_symbol,
+        s1.ea_magic,
+        s1.ea_status,
+        s1.cycle_id,
+        s1.cycle_active,
+        s1.cycle_active_target,
+        s1.cycle_profit_basis,
+        s1.cycle_open_positions,
+        s1.cycle_pending_orders,
+        s1.cycle_accounting_confirmed,
+        s1.received_at,
+        s1.today_pnl,
+        s2.equity as prev_equity,
+        s2.cycle_net as prev_cycle_net,
+        s2.cycle_floating as prev_floating_pnl,
+        s2.cycle_open_positions as prev_open_positions,
+        s2.today_pnl as prev_today_pnl
       FROM accounts a
       LEFT JOIN LATERAL (
         SELECT *
@@ -515,7 +520,14 @@ async function getAllAccounts() {
         WHERE snapshots.login = a.login
         ORDER BY received_at DESC
         LIMIT 1
-      ) s ON true
+      ) s1 ON true
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM snapshots
+        WHERE snapshots.login = a.login
+        ORDER BY received_at DESC
+        LIMIT 1 OFFSET 1
+      ) s2 ON true
       ORDER BY a.login ASC
     `);
 
@@ -528,58 +540,64 @@ async function getAllAccounts() {
     }
     return accounts;
   } else {
-    // SQLite version
-    const accounts = db.prepare(`
-      SELECT
-        a.login,
-        a.label,
-        a.created_at,
-        a.last_seen_at,
-        s.balance,
-        s.equity,
-        s.cycle_net,
-        s.cycle_realized_bank as realized_bank,
-        s.cycle_floating as floating_pnl,
-        s.currency,
-        s.server,
-        s.account_name,
-        s.source_mode,
-        s.ea_name,
-        s.ea_version,
-        s.ea_symbol,
-        s.ea_magic,
-        s.ea_status,
-        s.cycle_id,
-        s.cycle_active,
-        s.cycle_active_target,
-        s.cycle_profit_basis,
-        s.cycle_open_positions,
-        s.cycle_pending_orders,
-        s.cycle_accounting_confirmed,
-        s.received_at,
-        s.today_pnl
-      FROM accounts a
-      LEFT JOIN (
-        SELECT *
-        FROM snapshots s1
-        WHERE s1.id = (
-          SELECT s2.id
-          FROM snapshots s2
-          WHERE s2.login = a.login
-          ORDER BY s2.received_at DESC
-          LIMIT 1
-        )
-      ) s ON a.login = s.login
-      ORDER BY a.login ASC
-    `).all();
+    // SQLite version - get all accounts first, then fetch their last 2 snapshots
+    const accounts = db.prepare('SELECT * FROM accounts ORDER BY login ASC').all();
 
-    console.log(`📊 getAllAccounts() returned ${accounts.length} account(s)`);
-    if (accounts.length > 0) {
-      accounts.forEach(acc => {
+    const enrichedAccounts = accounts.map(account => {
+      // Get last 2 snapshots for this account
+      const snapshots = db.prepare(`
+        SELECT * FROM snapshots
+        WHERE login = ?
+        ORDER BY received_at DESC
+        LIMIT 2
+      `).all(account.login);
+
+      const latest = snapshots[0] || null;
+      const previous = snapshots[1] || null;
+
+      return {
+        login: account.login,
+        label: account.label,
+        created_at: account.created_at,
+        last_seen_at: account.last_seen_at,
+        balance: latest?.balance,
+        equity: latest?.equity,
+        cycle_net: latest?.cycle_net,
+        realized_bank: latest?.cycle_realized_bank,
+        floating_pnl: latest?.cycle_floating,
+        currency: latest?.currency,
+        server: latest?.server,
+        account_name: latest?.account_name,
+        source_mode: latest?.source_mode,
+        ea_name: latest?.ea_name,
+        ea_version: latest?.ea_version,
+        ea_symbol: latest?.ea_symbol,
+        ea_magic: latest?.ea_magic,
+        ea_status: latest?.ea_status,
+        cycle_id: latest?.cycle_id,
+        cycle_active: latest?.cycle_active,
+        cycle_active_target: latest?.cycle_active_target,
+        cycle_profit_basis: latest?.cycle_profit_basis,
+        cycle_open_positions: latest?.cycle_open_positions,
+        cycle_pending_orders: latest?.cycle_pending_orders,
+        cycle_accounting_confirmed: latest?.cycle_accounting_confirmed,
+        received_at: latest?.received_at,
+        today_pnl: latest?.today_pnl,
+        prev_equity: previous?.equity,
+        prev_cycle_net: previous?.cycle_net,
+        prev_floating_pnl: previous?.cycle_floating,
+        prev_open_positions: previous?.cycle_open_positions,
+        prev_today_pnl: previous?.today_pnl
+      };
+    });
+
+    console.log(`📊 getAllAccounts() returned ${enrichedAccounts.length} account(s)`);
+    if (enrichedAccounts.length > 0) {
+      enrichedAccounts.forEach(acc => {
         console.log(`   - Login: ${acc.login}, Label: "${acc.label}", EA: ${acc.ea_name || 'N/A'}`);
       });
     }
-    return accounts;
+    return enrichedAccounts;
   }
 }
 
