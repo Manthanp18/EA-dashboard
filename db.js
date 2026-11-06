@@ -379,7 +379,7 @@ async function addSnapshot(login, data) {
         data.cycle?.open_positions || null,
         data.cycle?.pending_orders || null,
         data.cycle?.accounting_confirmed || null,
-        data.terminal?.algo_trading_enabled || null,
+        data.terminal?.algo_trading_enabled !== undefined ? data.terminal.algo_trading_enabled : null,
         now
       ]
     );
@@ -437,7 +437,7 @@ async function addSnapshot(login, data) {
       data.cycle?.open_positions || null,
       data.cycle?.pending_orders || null,
       data.cycle?.accounting_confirmed ? 1 : 0,
-      data.terminal?.algo_trading_enabled ? 1 : 0,
+      data.terminal?.algo_trading_enabled !== undefined ? (data.terminal.algo_trading_enabled ? 1 : 0) : null,
       now
     );
 
