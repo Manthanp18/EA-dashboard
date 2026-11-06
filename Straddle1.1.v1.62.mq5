@@ -5260,6 +5260,39 @@ void HttpPushDashboardData()
    string currency = AccountInfoString(ACCOUNT_CURRENCY);
    double balance = AccountInfoDouble(ACCOUNT_BALANCE);
    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double profit = AccountInfoDouble(ACCOUNT_PROFIT);  // Current floating profit/loss
+
+   // Calculate today's REALIZED profit (closed deals only, no floating)
+   double todayPnl = 0.0;  // Start at zero
+
+   // Get today's start time (midnight broker time)
+   datetime serverTime = TimeTradeServer();
+   MqlDateTime dtToday;
+   TimeToStruct(serverTime, dtToday);
+   dtToday.hour = 0;
+   dtToday.min = 0;
+   dtToday.sec = 0;
+   datetime midnight = StructToTime(dtToday);
+
+   // Sum all closed deals from today (ONLY trading, no deposits/withdrawals)
+   if(HistorySelect(midnight, serverTime))
+   {
+      int total = HistoryDealsTotal();
+      for(int i = 0; i < total; i++)
+      {
+         ulong ticket = HistoryDealGetTicket(i);
+         if(ticket > 0)
+         {
+            // Skip balance operations (deposits/withdrawals) - only count actual trades
+            long dealType = HistoryDealGetInteger(ticket, DEAL_TYPE);
+            if(dealType == DEAL_TYPE_BALANCE) continue;
+
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_PROFIT);
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_SWAP);
+            todayPnl += HistoryDealGetDouble(ticket, DEAL_COMMISSION);
+         }
+      }
+   }
 
    //--- EA DATA ---
    string eaName = "Straddle";
@@ -5276,11 +5309,6 @@ void HttpPushDashboardData()
    double cycleRealized = CycleRealized();
    double floatingPnl = FloatingPnL();
    double cycleNet = cycleRealized + floatingPnl;
-   // Reuse the dashboard's day ledger and avoid an extra history scan per push.
-   string dailyRealizedJson = "null";
-   if(gDayStart > 0 && now >= gDayStart && now < gDayStart+86400 &&
-      !gBankHistoryDirty && !gBankScanFailed && MathIsValidNumber(gDailyPnL))
-      dailyRealizedJson = DoubleToString(gDailyPnL,2);
 
    // Count positions and pending orders
    int openPositions = 0;
@@ -5330,14 +5358,15 @@ void HttpPushDashboardData()
       "\"snapshot_id\":\"%s\","
       "\"sampled_at_utc\":\"%s\","
       "\"source_mode\":\"%s\","
-      "\"daily_realized\":%s,"
       "\"account\":{"
          "\"login\":\"%I64d\","
          "\"name\":\"%s\","
          "\"server\":\"%s\","
          "\"currency\":\"%s\","
          "\"balance\":%.2f,"
-         "\"equity\":%.2f"
+         "\"equity\":%.2f,"
+         "\"profit\":%.2f,"
+         "\"today_pnl\":%.2f"
       "},"
       "\"ea\":{"
          "\"name\":\"%s\","
@@ -5364,7 +5393,6 @@ void HttpPushDashboardData()
       snapshotID,
       sampledAtUTC,
       sourceMode,
-      dailyRealizedJson,
       // Account data
       login,
       accountName,
@@ -5372,6 +5400,8 @@ void HttpPushDashboardData()
       currency,
       balance,
       equity,
+      profit,
+      todayPnl,
       // EA data
       eaName,
       eaVersion,

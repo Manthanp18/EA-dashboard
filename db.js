@@ -311,6 +311,18 @@ async function upsertAccount(login, label) {
 async function addSnapshot(login, data) {
   const now = Math.floor(Date.now() / 1000);
 
+  // Backwards compatibility: map daily_realized (root) to today_pnl
+  const todayPnl = data.account?.today_pnl !== undefined
+    ? data.account.today_pnl
+    : (data.daily_realized !== undefined ? parseFloat(data.daily_realized) : null);
+
+  // Backwards compatibility: if profit is missing, calculate from equity - balance
+  const profit = data.account?.profit !== undefined
+    ? data.account.profit
+    : (data.account?.equity && data.account?.balance
+        ? data.account.equity - data.account.balance
+        : null);
+
   if (USE_POSTGRES) {
     // Check if we have a recent snapshot (within last 5 seconds)
     const lastSnapshot = await pool.query(
@@ -345,8 +357,8 @@ async function addSnapshot(login, data) {
         data.account?.currency || 'USD',
         data.account?.balance || 0,
         data.account?.equity || 0,
-        data.account?.profit || null,
-        data.account?.today_pnl || null,
+        profit,
+        todayPnl,
         data.ea?.name || null,
         data.ea?.version || null,
         data.ea?.instance_id || null,
@@ -402,8 +414,8 @@ async function addSnapshot(login, data) {
       data.account?.currency || 'USD',
       data.account?.balance || 0,
       data.account?.equity || 0,
-      data.account?.profit || null,
-      data.account?.today_pnl || null,
+      profit,
+      todayPnl,
       data.ea?.name || null,
       data.ea?.version || null,
       data.ea?.instance_id || null,
